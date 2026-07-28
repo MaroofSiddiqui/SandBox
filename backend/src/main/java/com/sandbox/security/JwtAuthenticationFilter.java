@@ -205,9 +205,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                  * User found     -> return User
                  * User not found -> return null
                  */
-                User user = userRepository
-                        .findByEmail(email)
-                        .orElse(null);
+            	User user = userRepository.findForAuthentication(email)
+            	        .orElse(null);
 
 
                 /*
@@ -328,6 +327,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
              * If the requested endpoint is protected,
              * Spring Security will later reject the request.
              */
+        	
+            // Temporary debugging to find why JWT authentication failed
+            System.out.println("JWT AUTH ERROR: " + exception.getMessage());
+            exception.printStackTrace();
         }
 
 

@@ -305,4 +305,19 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.NOT_FOUND)
                 .body(response);
     }
+    
+    @ExceptionHandler(AccountInactiveException.class)
+    public ResponseEntity<Map<String, Object>> handleAccountInactive(
+            AccountInactiveException ex) {
+
+        Map<String, Object> response = new LinkedHashMap<>();
+
+        response.put("status", HttpStatus.FORBIDDEN.value());
+        response.put("error", "Forbidden");
+        response.put("message", ex.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(response);
+    }
 }
