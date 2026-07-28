@@ -1,0 +1,116 @@
+package com.sandbox.config;
+
+import java.util.List;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import com.sandbox.security.JwtAccessDeniedHandler;
+import com.sandbox.security.JwtAuthenticationEntryPoint;
+import com.sandbox.security.JwtAuthenticationFilter;
+
+@Configuration
+public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+    private final JwtAccessDeniedHandler accessDeniedHandler;
+
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            JwtAuthenticationEntryPoint authenticationEntryPoint,
+            JwtAccessDeniedHandler accessDeniedHandler) {
+
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.authenticationEntryPoint = authenticationEntryPoint;
+        this.accessDeniedHandler = accessDeniedHandler;
+    }
+
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
+        http
+            // Enable CORS using the configuration below
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+            .csrf(csrf -> csrf.disable())
+
+            // JWT authentication is stateless
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+
+            // Custom 401 and 403 responses
+            .exceptionHandling(exception -> exception
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler)
+            )
+
+            .authorizeHttpRequests(auth -> auth
+
+                // Public APIs
+                .requestMatchers("/auth/login", "/error").permitAll()
+
+                // Only SUPER_ADMIN
+                .requestMatchers(
+                    "/organizations/**",
+                    "/hrs/**"
+                ).hasRole("SUPER_ADMIN")
+
+                // Only HR
+                .requestMatchers("/candidates/**").hasRole("HR")
+
+                // Everything else needs authentication
+                .anyRequest().authenticated()
+            )
+
+            // Validate JWT before Spring authorization
+            .addFilterBefore(
+                jwtAuthenticationFilter,
+                UsernamePasswordAuthenticationFilter.class
+            );
+
+        return http.build();
+    }
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource() {
+
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // React development server
+        configuration.setAllowedOrigins(
+            List.of("http://localhost:5173")
+        );
+
+        // HTTP methods frontend can use
+        configuration.setAllowedMethods(
+            List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+        );
+
+        // Allow Authorization and Content-Type headers
+        configuration.setAllowedHeaders(
+            List.of("Authorization", "Content-Type")
+        );
+
+        // Allow browser to read Authorization header if needed
+        configuration.setExposedHeaders(
+            List.of("Authorization")
+        );
+
+        UrlBasedCorsConfigurationSource source =
+            new UrlBasedCorsConfigurationSource();
+
+        // Apply CORS configuration to every API
+        source.registerCorsConfiguration("/**", configuration);
+
+        return source;
+    }
+}
