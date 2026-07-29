@@ -1,0 +1,45 @@
+package com.sandbox.proctoring.evaluation;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+import java.util.Optional;
+
+// REST Controller to handle HTTP requests for AI evaluations
+@RestController
+@RequestMapping("/api/evaluations")
+public class AiEvaluationController {
+
+    @Autowired
+    private AiEvaluationService evaluationService;
+
+    // POST endpoint to create/save a new evaluation result
+    @PostMapping
+    public ResponseEntity<AiEvaluationResult> createEvaluation(@RequestBody AiEvaluationResult evaluation) {
+        AiEvaluationResult savedEvaluation = evaluationService.saveEvaluation(evaluation);
+        return ResponseEntity.ok(savedEvaluation);
+    }
+
+    // GET endpoint to retrieve all evaluation results
+    @GetMapping
+    public ResponseEntity<List<AiEvaluationResult>> getAllEvaluations() {
+        List<AiEvaluationResult> evaluations = evaluationService.getAllEvaluations();
+        return ResponseEntity.ok(evaluations);
+    }
+
+    // GET endpoint to retrieve an evaluation result by its ID
+    @GetMapping("/{id}")
+    public ResponseEntity<AiEvaluationResult> getEvaluationById(@PathVariable String id) {
+        Optional<AiEvaluationResult> evaluation = evaluationService.getEvaluationById(id);
+        return evaluation.map(ResponseEntity::ok)
+                         .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    // GET endpoint to retrieve evaluations by student ID
+    @GetMapping("/student/{studentId}")
+    public ResponseEntity<List<AiEvaluationResult>> getEvaluationsByStudentId(@PathVariable String studentId) {
+        List<AiEvaluationResult> evaluations = evaluationService.getEvaluationsByStudentId(studentId);
+        return ResponseEntity.ok(evaluations);
+    }
+}
