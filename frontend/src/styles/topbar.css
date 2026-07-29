@@ -1,0 +1,91 @@
+.topbar{
+
+    height:85px;
+
+    background:white;
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    padding:0 35px;
+
+    border-bottom:1px solid #e2e8f0;
+
+}
+
+.topbar h1{
+
+    font-size:28px;
+
+    color:#1e293b;
+
+}
+
+.topbar p{
+
+    color:#64748b;
+
+    margin-top:5px;
+
+}
+
+.topbar-right{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:25px;
+
+}
+
+.notification-btn{
+
+    width:45px;
+
+    height:45px;
+
+    border:none;
+
+    border-radius:50%;
+
+    background:#f1f5f9;
+
+    cursor:pointer;
+
+    transition:.3s;
+
+}
+
+.notification-btn:hover{
+
+    background:#dbeafe;
+
+}
+
+.user-box{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+}
+
+.user-box h4{
+
+    color:#1e293b;
+
+}
+
+.user-box p{
+
+    color:#64748b;
+
+    font-size:14px;
+
+}
