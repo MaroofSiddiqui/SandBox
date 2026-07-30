@@ -1,7 +1,10 @@
-package com.sandbox.proctoring.evaluation;
+package com.sandbox.proctoring.evaluation.repository;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
+
+import com.sandbox.proctoring.evaluation.model.AiEvaluationResult;
+
 import java.util.List;
 
 // Repository interface for database operations on AiEvaluationResult

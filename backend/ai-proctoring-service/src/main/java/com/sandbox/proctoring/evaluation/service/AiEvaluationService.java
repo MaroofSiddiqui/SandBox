@@ -1,7 +1,11 @@
-package com.sandbox.proctoring.evaluation;
+package com.sandbox.proctoring.evaluation.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import com.sandbox.proctoring.evaluation.model.AiEvaluationResult;
+import com.sandbox.proctoring.evaluation.repository.EvaluationRepository;
+
 import java.util.List;
 import java.util.Optional;
 

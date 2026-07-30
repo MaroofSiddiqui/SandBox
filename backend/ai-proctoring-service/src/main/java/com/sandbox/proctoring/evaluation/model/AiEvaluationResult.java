@@ -1,4 +1,4 @@
-package com.sandbox.proctoring.evaluation;
+package com.sandbox.proctoring.evaluation.model;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;

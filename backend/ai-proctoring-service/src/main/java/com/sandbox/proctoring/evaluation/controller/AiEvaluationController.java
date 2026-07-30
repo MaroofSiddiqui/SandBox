@@ -1,8 +1,14 @@
-package com.sandbox.proctoring.evaluation;
+package com.sandbox.proctoring.evaluation.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import com.sandbox.proctoring.evaluation.model.AiEvaluationResult;
+import com.sandbox.proctoring.evaluation.service.AiEvaluationService;
+import com.sandbox.proctoring.evaluation.service.Judge0Service;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -41,5 +47,15 @@ public class AiEvaluationController {
     public ResponseEntity<List<AiEvaluationResult>> getEvaluationsByStudentId(@PathVariable String studentId) {
         List<AiEvaluationResult> evaluations = evaluationService.getEvaluationsByStudentId(studentId);
         return ResponseEntity.ok(evaluations);
+    }
+    
+    @Autowired
+    private Judge0Service judge0Service;
+
+    
+    @PostMapping("/submit-code")
+    public ResponseEntity<String> submitCode(@RequestParam String sourceCode, @RequestParam int languageId) {
+        String evaluationResult = judge0Service.submitCodeToJudge0(sourceCode, languageId);
+        return ResponseEntity.ok(evaluationResult);
     }
 }
