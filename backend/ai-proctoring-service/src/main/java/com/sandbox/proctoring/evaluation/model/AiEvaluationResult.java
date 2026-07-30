@@ -15,6 +15,9 @@ public class AiEvaluationResult {
     private double score;
     private String feedback;
     private LocalDateTime evaluatedAt;
+    private String sourceCode;
+    private int languageId;
+    private String stdout;
 
     // Default constructor
     public AiEvaluationResult() {
@@ -77,5 +80,29 @@ public class AiEvaluationResult {
 
     public void setEvaluatedAt(LocalDateTime evaluatedAt) {
         this.evaluatedAt = evaluatedAt;
+    }
+
+    public String getSourceCode() {
+        return sourceCode;
+    }
+
+    public void setSourceCode(String sourceCode) {
+        this.sourceCode = sourceCode;
+    }
+
+    public int getLanguageId() {
+        return languageId;
+    }
+
+    public void setLanguageId(int languageId) {
+        this.languageId = languageId;
+    }
+
+    public String getStdout() {
+        return stdout;
+    }
+
+    public void setStdout(String stdout) {
+        this.stdout = stdout;
     }
 }

@@ -1,11 +1,11 @@
 package com.sandbox.proctoring.evaluation.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.sandbox.proctoring.evaluation.model.AiEvaluationResult;
+import com.sandbox.proctoring.evaluation.model.CodeSubmission;
 import com.sandbox.proctoring.evaluation.service.AiEvaluationService;
 import com.sandbox.proctoring.evaluation.service.Judge0Service;
 
@@ -19,6 +19,9 @@ public class AiEvaluationController {
 
     @Autowired
     private AiEvaluationService evaluationService;
+
+    @Autowired
+    private Judge0Service judge0Service;
 
     // POST endpoint to create/save a new evaluation result
     @PostMapping
@@ -49,13 +52,16 @@ public class AiEvaluationController {
         return ResponseEntity.ok(evaluations);
     }
     
-    @Autowired
-    private Judge0Service judge0Service;
-
-    
+    // POST endpoint to submit code directly to Judge0 without saving
     @PostMapping("/submit-code")
     public ResponseEntity<String> submitCode(@RequestParam String sourceCode, @RequestParam int languageId) {
         String evaluationResult = judge0Service.submitCodeToJudge0(sourceCode, languageId);
         return ResponseEntity.ok(evaluationResult);
+    }
+    
+    // POST endpoint to submit code, execute via Judge0, and save into MongoDB
+    @PostMapping("/submit-and-save")
+    public AiEvaluationResult submitAndSaveCode(@RequestBody CodeSubmission request) {
+        return evaluationService.processAndSaveEvaluation(request.getSourceCode(), request.getLanguageId());
     }
 }
