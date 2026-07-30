@@ -1,23 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { uploadViolationEvidence } from '../api/proctoringService';
+import { uploadViolationEvidence, logViolationEvent } from '../api/proctoringService';
+import { initializeFaceDetector, detectFacesInFrame } from '../utils/faceDetectionService';
 
 /**
  * Custom React Hook: useProctoring
  *
- * Enforces automated security guardrails and real-time monitoring during online assessments:
+ * Enforces security guardrails and real-time monitoring during online assessments:
  * 1. Stream Validation: Mandates entire screen sharing ("monitor") and blocks single window/tab shares.
- * 2. Active Track Monitoring: Immediately locks the assessment if screen sharing is stopped by candidate.
- * 3. Breach Event Handlers: Intercepts Alt+Tab OS application switching, copy/paste attempts, 
- *    fullscreen exits, and applies a 5-second grace timer to general window blur/tab switches.
- * 4. Dual Video Evidence Buffers: Silently records 30-second .webm clips of both webcam and screen 
- *    when a security violation occurs, then automatically dispatches them to the backend API.
- *
- * @returns {Object} Hook state and control methods:
- * @returns {Object} return.warning - Modal visibility state and message string.
- * @returns {Function} return.closeWarning - Modal dismissal handler that re-requests fullscreen.
- * @returns {string|null} return.screenShareError - Active error status blocking the assessment.
- * @returns {Function} return.requestMediaStreams - Stream initialization and recovery method.
- * @returns {MediaStream|null} return.webcamStream - Active webcam stream for UI preview rendering.
+ * 2. Active Track Monitoring: Immediately locks the assessment if screen sharing is stopped.
+ * 3. Breach Event Handlers: Intercepts Alt+Tab, Ctrl+Tab OS application switching, copy/paste attempts, 
+ *    and fullscreen exits (applies a uniform 5-second grace period across all focus/navigation loss events).
+ * 4. AI Vision Engine: Uses Google MediaPipe to monitor candidate presence with a 3-second grace period.
+ *    Logs JSON violation reports directly to backend without recording video files.
  */
 export const useProctoring = () => {
   // State for security warning overlay
@@ -36,24 +30,29 @@ export const useProctoring = () => {
   const webcamRecorderRef = useRef(null);
   const screenRecorderRef = useRef(null);
   const awayTimerRef = useRef(null);
-  const isAltPressedRef = useRef(false);
+  const isModifierPressedRef = useRef(false);
+
+  // AI Vision Detection Timers (3-second continuous grace timers)
+  const noFaceTimerRef = useRef(0);
+  const multiFaceTimerRef = useRef(0);
+  const aiAnimationFrameRef = useRef(null);
 
   // Persistent Stream References (Prevents stale closures in event handlers)
   const webcamStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
 
   /**
-   * Triggers a silent 30-second dual webcam and screen video buffer recording upon violation,
-   * and dispatches the recorded Blobs to the backend API via uploadViolationEvidence.
+   * Triggers a silent 30-second dual webcam and screen video buffer recording ONLY for 
+   * OS application switching / focus breach events after the 5-second grace period expires.
    *
-   * @param {string} eventType - The classification key of the violation (logged for audit trail).
+   * @param {string} eventType - The classification key of the violation.
    */
   const trigger30SecRecording = useCallback((eventType) => {
-    console.warn(`[INTERNAL AUDIT LOG]: Violation -> ${eventType} at ${new Date().toISOString()}`);
+    console.warn(`[INTERNAL AUDIT LOG]: Recording Triggered -> ${eventType} at ${new Date().toISOString()}`);
 
-    // Concurrency Lock: Do not start another recording session if one is active
+    // Concurrency Lock: Do not start another recording session if one is actively recording
     if (isRecordingRef.current) {
-      console.log("[Proctoring Engine]: Dual video buffer actively recording. Event logged silently.");
+      console.log(`[Proctoring Engine]: Dual video buffer actively recording for prior event. Event ${eventType} logged silently.`);
       return;
     }
 
@@ -68,20 +67,17 @@ export const useProctoring = () => {
     try {
       isRecordingRef.current = true;
 
-      // Fallback MIME type configuration for cross-browser support
       let options = { mimeType: 'video/webm' };
       if (!MediaRecorder.isTypeSupported('video/webm')) {
         options = { mimeType: '' };
       }
 
-      // Temporary blob holders to synchronize upload once both streams finish
       let recordedWebcamBlob = null;
       let recordedScreenBlob = null;
 
-      // Helper to dispatch upload once both media buffers finalize
       const checkAndUpload = () => {
         if (recordedWebcamBlob && recordedScreenBlob) {
-          console.log("[Proctoring Engine]: Both video buffers finalized. Initiating backend evidence upload...");
+          console.log(`[Proctoring Engine]: Dual video buffers finalized for event: [${eventType}]. Dispatching video evidence to backend...`);
           
           uploadViolationEvidence({
             webcamBlob: recordedWebcamBlob,
@@ -89,15 +85,15 @@ export const useProctoring = () => {
             violationType: eventType
           })
             .catch((err) => {
-              console.error("[Proctoring Engine]: Background evidence upload failed:", err);
+              console.warn(`[Proctoring Engine]: Background evidence upload failed for event [${eventType}] (Backend offline):`, err.message);
             })
             .finally(() => {
-              isRecordingRef.current = false; // Release recording lock after upload attempt
+              isRecordingRef.current = false;
             });
         }
       };
 
-      // 1. Initialize Webcam MediaRecorder
+      // 1. Webcam MediaRecorder
       const webcamChunks = [];
       const webcamRecorder = new MediaRecorder(currentWebcam, options);
       webcamRecorderRef.current = webcamRecorder;
@@ -108,11 +104,10 @@ export const useProctoring = () => {
 
       webcamRecorder.onstop = () => {
         recordedWebcamBlob = new Blob(webcamChunks, { type: 'video/webm' });
-        console.log("[Proctoring Engine]: Silent 30s WEBCAM Evidence Captured. Size:", recordedWebcamBlob.size, "bytes");
         checkAndUpload();
       };
 
-      // 2. Initialize Screen MediaRecorder
+      // 2. Screen MediaRecorder
       const screenChunks = [];
       const screenRecorder = new MediaRecorder(currentScreen, options);
       screenRecorderRef.current = screenRecorder;
@@ -123,56 +118,56 @@ export const useProctoring = () => {
 
       screenRecorder.onstop = () => {
         recordedScreenBlob = new Blob(screenChunks, { type: 'video/webm' });
-        console.log("[Proctoring Engine]: Silent 30s SCREEN Evidence Captured. Size:", recordedScreenBlob.size, "bytes");
         checkAndUpload();
       };
 
-      // Start dual video recording
+      console.log(`🎥 [Proctoring Engine]: Started 30-second dual video recording specifically for event: [${eventType}]`);
+
       webcamRecorder.start();
       screenRecorder.start();
-      console.log("[Proctoring Engine]: Started 30-second dual webcam & screen recording buffer...");
 
-      // Automatically terminate recording after 30 seconds
+      // Automatically stop recording after 30 seconds
       setTimeout(() => {
         if (webcamRecorder.state !== 'inactive') webcamRecorder.stop();
         if (screenRecorder.state !== 'inactive') screenRecorder.stop();
       }, 30000);
 
     } catch (error) {
-      console.error("[Proctoring Engine]: Error initializing MediaRecorders:", error);
+      console.error("[Proctoring Engine]: Error starting MediaRecorders:", error);
       isRecordingRef.current = false;
     }
   }, []);
 
   /**
-   * Displays immediate warning modal for high-severity violations (e.g., Alt+Tab, Fullscreen Exit).
+   * Dispatches a pure JSON violation log report to the backend without recording video.
    *
    * @param {string} violationType - Internal classification identifier.
+   * @param {string} customMessage - Human readable text for modal display.
    */
-  const triggerImmediateViolation = useCallback((violationType) => {
-    // Cancel any pending grace period timers
-    if (awayTimerRef.current) {
-      clearTimeout(awayTimerRef.current);
-      awayTimerRef.current = null;
-    }
+  const logReportOnlyViolation = useCallback((violationType, customMessage) => {
+    console.warn(`[INTERNAL AUDIT LOG]: Reporting Violation (No Video) -> ${violationType}`);
 
     setWarning({
       isOpen: true,
-      text: 'Violation event triggered. An assessment policy breach has been detected and logged.',
+      text: customMessage,
       violationType: violationType
     });
-    trigger30SecRecording(violationType);
-  }, [trigger30SecRecording]);
+
+    if (typeof logViolationEvent === 'function') {
+      logViolationEvent({ violationType, timestamp: new Date().toISOString() })
+        .catch((err) => console.warn('[Proctoring Engine]: Backend offline for violation logging:', err.message));
+    }
+  }, []);
 
   /**
-   * Starts a 5-second grace period timer for low-severity focus loss or tab switching.
+   * Starts a 5-second grace period timer for ALL focus loss, tab switches, Alt+Tab, and fullscreen exits.
    *
    * @param {string} violationType - Internal classification identifier.
    */
   const startAwayTimer = useCallback((violationType) => {
     if (awayTimerRef.current) return;
 
-    console.log("[Proctoring Engine]: Focus lost. Starting 5-second grace period timer...");
+    console.log(`[Proctoring Engine]: Focus/Security lost (${violationType}). Starting 5-second grace period timer...`);
 
     awayTimerRef.current = setTimeout(() => {
       setWarning({
@@ -180,36 +175,35 @@ export const useProctoring = () => {
         text: 'Violation event triggered. An assessment policy breach has been detected and logged.',
         violationType: violationType
       });
+
       trigger30SecRecording(violationType);
       awayTimerRef.current = null;
-    }, 5000);
+    }, 5000); // 5 second grace period
   }, [trigger30SecRecording]);
 
   /**
-   * Clears the grace period timer if candidate returns within 5 seconds.
+   * Clears the 5-second grace period timer if candidate returns in time.
    */
   const clearAwayTimer = useCallback(() => {
     if (awayTimerRef.current) {
       clearTimeout(awayTimerRef.current);
       awayTimerRef.current = null;
-      console.log("[Proctoring Engine]: Candidate returned within 5 seconds. Grace period timer cleared.");
+      console.log("[Proctoring Engine]: Candidate returned within 5 seconds. Grace timer cleared.");
     }
   }, []);
 
   /**
-   * Requests, validates, and initializes dual Webcam and Screen MediaStreams.
+   * Requests and validates Webcam & Screen Capture streams.
    */
   const requestMediaStreams = useCallback(async () => {
     if (isInitializingRef.current) return;
     isInitializingRef.current = true;
 
     try {
-      // Stop existing screen tracks if re-initializing
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach((track) => track.stop());
       }
 
-      // Initialize Webcam Stream if inactive
       let userWebcamStream = webcamStreamRef.current;
       if (!userWebcamStream || !userWebcamStream.active) {
         userWebcamStream = await navigator.mediaDevices.getUserMedia({
@@ -218,16 +212,14 @@ export const useProctoring = () => {
         });
       }
 
-      // Initialize Screen Capture Stream
       const userScreenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { displaySurface: 'monitor' }, // Directs browser UI toward entire screen option
+        video: { displaySurface: 'monitor' },
         audio: false
       });
 
       const videoTrack = userScreenStream.getVideoTracks()[0];
       const settings = videoTrack.getSettings();
 
-      // Guardrail 1: Strictly reject single application window or browser tab selections
       if (settings.displaySurface && settings.displaySurface !== 'monitor') {
         videoTrack.stop();
         setScreenShareError('ENTIRE_SCREEN_REQUIRED');
@@ -237,25 +229,20 @@ export const useProctoring = () => {
         return;
       }
 
-      // Guardrail 2: Direct track termination listener ('Stop sharing' browser bar action)
       videoTrack.onended = () => {
-        console.warn('[Proctoring Engine]: Screen sharing track ended by candidate. Locking exam.');
         setScreenStream(null);
         screenStreamRef.current = null;
         setScreenShareError('SCREEN_SHARE_STOPPED');
       };
 
-      // Synchronize states and persistent refs
       setWebcamStream(userWebcamStream);
       setScreenStream(userScreenStream);
       webcamStreamRef.current = userWebcamStream;
       screenStreamRef.current = userScreenStream;
       setScreenShareError(null);
-      
-      console.log('[Proctoring Engine]: Dual streams successfully verified and active.');
 
     } catch (err) {
-      console.error('[Proctoring Engine]: Stream permission denied or prompt dismissed:', err);
+      console.error('[Proctoring Engine]: Stream permission denied:', err);
       setScreenShareError('SCREEN_SHARE_DENIED');
       setScreenStream(null);
       screenStreamRef.current = null;
@@ -265,73 +252,137 @@ export const useProctoring = () => {
   }, []);
 
   /**
-   * Component Mount Effect: Prompts initial stream request and provides teardown cleanup.
+   * Mount Effect: Stream setup & teardown
    */
   useEffect(() => {
     let isMounted = true;
 
     const init = async () => {
-      if (isMounted) {
-        await requestMediaStreams();
-      }
+      if (isMounted) await requestMediaStreams();
     };
 
     init();
 
     return () => {
       isMounted = false;
-      if (webcamStreamRef.current) {
-        webcamStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
-      if (screenStreamRef.current) {
-        screenStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
+      if (webcamStreamRef.current) webcamStreamRef.current.getTracks().forEach((track) => track.stop());
+      if (screenStreamRef.current) screenStreamRef.current.getTracks().forEach((track) => track.stop());
     };
   }, [requestMediaStreams]);
 
   /**
-   * System-Level Security Event Listeners Registration
+   * AI Face Detection Frame Loop Effect:
+   * Uses a 3-second continuous grace period (90 frames at 30 FPS).
+   * Logs violation report ONLY (no video recording).
    */
   useEffect(() => {
-    // Keydown tracker for OS-level Alt+Tab interception
+    let active = true;
+
+    // Pause frame scanning while a warning modal is active
+    if (warning.isOpen) return;
+
+    const startAIVision = async () => {
+      try {
+        await initializeFaceDetector();
+
+        const processFrame = () => {
+          if (!active) return;
+
+          const videoElement = document.querySelector('video');
+
+          if (videoElement && videoElement.readyState >= 2) {
+            const faceCount = detectFacesInFrame(videoElement, performance.now());
+
+            if (faceCount === 0) {
+              noFaceTimerRef.current += 1;
+              multiFaceTimerRef.current = 0;
+
+              if (noFaceTimerRef.current > 90) {
+                noFaceTimerRef.current = 0;
+                logReportOnlyViolation(
+                  'NO_FACE_DETECTED',
+                  'No candidate detected in frame! Please ensure your webcam is uncovered and face is visible.'
+                );
+              }
+            } else if (faceCount > 1) {
+              multiFaceTimerRef.current += 1;
+              noFaceTimerRef.current = 0;
+
+              if (multiFaceTimerRef.current > 90) {
+                multiFaceTimerRef.current = 0;
+                logReportOnlyViolation(
+                  'MULTIPLE_FACES_DETECTED',
+                  'Multiple faces detected in frame! Please ensure you are completely alone during the exam.'
+                );
+              }
+            } else if (faceCount === 1) {
+              noFaceTimerRef.current = 0;
+              multiFaceTimerRef.current = 0;
+            }
+          }
+
+          aiAnimationFrameRef.current = requestAnimationFrame(processFrame);
+        };
+
+        processFrame();
+      } catch (err) {
+        console.error('[Proctoring Engine]: Failed to start AI vision detector loop:', err);
+      }
+    };
+
+    if (webcamStream) {
+      startAIVision();
+    }
+
+    return () => {
+      active = false;
+      if (aiAnimationFrameRef.current) {
+        cancelAnimationFrame(aiAnimationFrameRef.current);
+      }
+    };
+  }, [webcamStream, warning.isOpen, logReportOnlyViolation]);
+
+  /**
+   * Keyboard & OS Focus Security Event Listeners (All given 5-second grace period)
+   */
+  useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Alt' || e.key === 'Meta') {
-        isAltPressedRef.current = true;
+      if (e.key === 'Alt' || e.key === 'Control' || e.key === 'Meta') {
+        isModifierPressedRef.current = true;
       }
 
-      if (e.altKey && (e.key === 'Tab' || e.key === 'Escape')) {
+      // Intercept Alt+Tab or Ctrl+Tab -> Start 5s timer
+      if ((e.altKey || e.ctrlKey) && (e.key === 'Tab' || e.key === 'Escape')) {
         e.preventDefault();
-        triggerImmediateViolation('ALT_TAB_KEY_COMBINATION');
+        startAwayTimer('KEYBOARD_APPLICATION_SWITCH');
       }
     };
 
     const handleKeyUp = (e) => {
-      if (e.key === 'Alt' || e.key === 'Meta') {
-        isAltPressedRef.current = false;
+      if (e.key === 'Alt' || e.key === 'Control' || e.key === 'Meta') {
+        isModifierPressedRef.current = false;
       }
     };
 
-    // Window focus/blur handlers
     const handleWindowBlur = () => {
-      if (isAltPressedRef.current) {
-        triggerImmediateViolation('ALT_TAB_SWITCH');
-        isAltPressedRef.current = false;
+      if (isModifierPressedRef.current) {
+        startAwayTimer('KEYBOARD_APPLICATION_SWITCH');
+        isModifierPressedRef.current = false;
       } else {
         startAwayTimer('WINDOW_BLUR_OVER_5SEC');
       }
     };
 
     const handleWindowFocus = () => {
-      isAltPressedRef.current = false;
+      isModifierPressedRef.current = false;
       clearAwayTimer();
     };
 
-    // Tab visibility handler
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        if (isAltPressedRef.current) {
-          triggerImmediateViolation('ALT_TAB_SWITCH');
-          isAltPressedRef.current = false;
+        if (isModifierPressedRef.current) {
+          startAwayTimer('KEYBOARD_APPLICATION_SWITCH');
+          isModifierPressedRef.current = false;
         } else {
           startAwayTimer('TAB_SWITCH_OVER_5SEC');
         }
@@ -340,20 +391,19 @@ export const useProctoring = () => {
       }
     };
 
-    // Fullscreen change handler
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
-        triggerImmediateViolation('FULLSCREEN_EXIT');
+        startAwayTimer('FULLSCREEN_EXIT');
+      } else {
+        clearAwayTimer();
       }
     };
 
-    // Clipboard and context menu restrictions
     const handleCopyPaste = (e) => {
       e.preventDefault();
-      triggerImmediateViolation('COPY_PASTE_ATTEMPT');
+      logReportOnlyViolation('COPY_PASTE_ATTEMPT', 'Copy/paste operations are disabled during the assessment.');
     };
 
-    // Attach global listeners
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('blur', handleWindowBlur);
@@ -364,7 +414,6 @@ export const useProctoring = () => {
     document.addEventListener('paste', handleCopyPaste);
     document.addEventListener('contextmenu', handleCopyPaste);
 
-    // Detach listeners on unmount
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
@@ -377,12 +426,15 @@ export const useProctoring = () => {
       document.removeEventListener('contextmenu', handleCopyPaste);
       if (awayTimerRef.current) clearTimeout(awayTimerRef.current);
     };
-  }, [triggerImmediateViolation, startAwayTimer, clearAwayTimer]);
+  }, [startAwayTimer, clearAwayTimer, logReportOnlyViolation]);
 
   /**
-   * Closes warning modal and re-enforces Fullscreen mode.
+   * Closes warning modal, resets AI counters, and re-enforces Fullscreen mode.
    */
   const closeWarning = () => {
+    noFaceTimerRef.current = 0;
+    multiFaceTimerRef.current = 0;
+
     setWarning({ isOpen: false, text: '', violationType: '' });
 
     if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
