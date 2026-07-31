@@ -17,6 +17,7 @@ public class ViolationRecord {
     private String examId;
     private String violationType;
     private String timestamp;
+    private String details; // optional extra information
     
     // saved video paths on server
     private String webcamVideoUrl;
@@ -51,6 +52,9 @@ public class ViolationRecord {
 
     public String getTimestamp() { return timestamp; }
     public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
+
+    public String getDetails() { return details; }
+    public void setDetails(String details) { this.details = details; }
 
     public String getWebcamVideoUrl() { return webcamVideoUrl; }
     public void setWebcamVideoUrl(String webcamVideoUrl) { this.webcamVideoUrl = webcamVideoUrl; }

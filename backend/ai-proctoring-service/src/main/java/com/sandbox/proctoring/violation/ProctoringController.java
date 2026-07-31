@@ -1,9 +1,16 @@
 package com.sandbox.proctoring.violation;
 
+import com.sandbox.proctoring.violation.dto.ViolationLogRequest;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/proctoring")
@@ -13,15 +20,15 @@ public class ProctoringController {
     @Autowired
     private ProctoringService proctoringService;
 
-    // route for fast text logs
+    // Route for fast text logs using validated DTO
     @PostMapping("/log-violation")
-    public ResponseEntity<ViolationRecord> logViolation(@RequestBody ViolationRecord record) {
-        System.out.println(">>> LOG VIOLATION RECEIVED: " + record.getViolationType());
-        ViolationRecord savedRecord = proctoringService.logViolation(record);
+    public ResponseEntity<ViolationRecord> logViolation(@Valid @RequestBody ViolationLogRequest request) {
+        System.out.println(">>> LOG VIOLATION RECEIVED: " + request.getViolationType());
+        ViolationRecord savedRecord = proctoringService.logViolation(request);
         return ResponseEntity.ok(savedRecord);
     }
 
-    // route for uploading video evidence files
+    // Route for uploading video evidence files with guardrail check
     @PostMapping("/upload-evidence")
     public ResponseEntity<?> uploadEvidence(
             @RequestParam(value = "webcamVideo", required = false) MultipartFile webcamVideo,
@@ -33,6 +40,10 @@ public class ProctoringController {
 
         System.out.println(">>> UPLOAD EVIDENCE RECEIVED: " + violationType);
 
+        if ((webcamVideo == null || webcamVideo.isEmpty()) && (screenVideo == null || screenVideo.isEmpty())) {
+            return ResponseEntity.badRequest().body("Error: At least one video evidence file (webcam or screen) must be provided.");
+        }
+
         try {
             ViolationRecord savedRecord = proctoringService.saveEvidence(
                     webcamVideo, screenVideo, violationType, candidateId, examId, timestamp
@@ -41,5 +52,17 @@ public class ProctoringController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Error saving video evidence: " + e.getMessage());
         }
+    }
+
+    // Local exception handler for validation errors ONLY on this controller
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        
+        ex.getBindingResult().getFieldErrors().forEach(error -> 
+            errors.put(error.getField(), error.getDefaultMessage())
+        );
+        
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
     }
 }

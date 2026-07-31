@@ -1,5 +1,6 @@
 package com.sandbox.proctoring.violation;
 
+import com.sandbox.proctoring.violation.dto.ViolationLogRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,18 +22,30 @@ public class ProctoringService {
     // local folder path to store uploaded videos
     private final String UPLOAD_DIR = "uploads/evidence/";
 
-    // saves small json logs without videos
-    public ViolationRecord logViolation(ViolationRecord record) {
+    // saves small json logs received via DTO
+    public ViolationRecord logViolation(ViolationLogRequest request) {
+        ViolationRecord record = new ViolationRecord();
+        record.setCandidateId(request.getCandidateId());
+        record.setExamId(request.getExamId());
+        record.setViolationType(request.getViolationType());
+        
+        // Convert Long timestamp from DTO to String for ViolationRecord
+        if (request.getTimestamp() != null) {
+            record.setTimestamp(String.valueOf(request.getTimestamp()));
+        }
+        
+        record.setDetails(request.getDetails());
+
         return repository.save(record);
     }
 
     // saves video files to disk and links in mongo
     public ViolationRecord saveEvidence(MultipartFile webcamVideo,
-                                        MultipartFile screenVideo,
-                                        String violationType,
-                                        String candidateId,
-                                        String examId,
-                                        String timestamp) throws IOException {
+                                         MultipartFile screenVideo,
+                                         String violationType,
+                                         String candidateId,
+                                         String examId,
+                                         String timestamp) throws IOException {
 
         ViolationRecord record = new ViolationRecord(candidateId, examId, violationType, timestamp);
 
