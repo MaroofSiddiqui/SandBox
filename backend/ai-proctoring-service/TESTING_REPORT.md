@@ -1,4 +1,4 @@
-# 🧪 AI Proctoring Service - Complete Test Report & API Documentation
+# 🧪 AI Code Evaluation- Complete Test Report & API Documentation
 
 **Project Module:** AI Code Submission & Evaluation Service  
 **Developer & Tester:** Mohit Chourasia  

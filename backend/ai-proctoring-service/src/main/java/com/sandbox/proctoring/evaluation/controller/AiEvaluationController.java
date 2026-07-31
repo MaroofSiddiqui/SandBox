@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.sandbox.proctoring.evaluation.model.AiEvaluationResult;
 import com.sandbox.proctoring.evaluation.model.CodeSubmission;
+import com.sandbox.proctoring.evaluation.model.TestCase;
 import com.sandbox.proctoring.evaluation.service.AiEvaluationService;
 import com.sandbox.proctoring.evaluation.service.Judge0Service;
 
@@ -59,9 +60,19 @@ public class AiEvaluationController {
         return ResponseEntity.ok(evaluationResult);
     }
     
-    // POST endpoint to submit code, execute via Judge0, and save into MongoDB
+ // POST endpoint to submit code, execute via Judge0 with test cases, and save into MongoDB
     @PostMapping("/submit-and-save")
     public AiEvaluationResult submitAndSaveCode(@RequestBody CodeSubmission request) {
-        return evaluationService.processAndSaveEvaluation(request.getSourceCode(), request.getLanguageId());
+        // Agar request mein test cases nahi aa rahe hain, toh aap default mock test cases bhej sakte hain
+        List<TestCase> mockTestCases = List.of(
+            new TestCase("5", "5"), // Example input and expected output
+            new TestCase("10", "10")
+        );
+        
+        return evaluationService.processAndSaveEvaluationWithTestCases(
+            request.getSourceCode(), 
+            request.getLanguageId(), 
+            mockTestCases
+        );
     }
 }
