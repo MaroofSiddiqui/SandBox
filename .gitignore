@@ -1,2 +1,8 @@
 /.metadata/
-**/application.properties
+# Local upload storage (video evidence)
+**/uploads/
+**/uploads/evidence/
+
+# Eclipse / IDE compiled binaries
+**/bin/
+**/target/
