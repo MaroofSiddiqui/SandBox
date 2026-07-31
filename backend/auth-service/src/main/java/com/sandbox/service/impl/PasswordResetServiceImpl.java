@@ -10,6 +10,8 @@ import com.sandbox.dto.ResetPasswordRequest;
 import com.sandbox.dto.VerifyOtpRequest;
 import com.sandbox.entity.PasswordResetOtp;
 import com.sandbox.entity.User;
+import com.sandbox.exception.InvalidOtpException;
+import com.sandbox.exception.UserNotFoundException;
 import com.sandbox.mail.HtmlEmailBuilder;
 import com.sandbox.repository.PasswordResetOtpRepository;
 import com.sandbox.repository.UserRepository;
@@ -72,7 +74,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
 		// Find user by email
 		User user = userRepository.findByEmail(request.getEmail())
-				.orElseThrow(() -> new RuntimeException("No account found with this email."));
+				.orElseThrow(() -> new UserNotFoundException("No account found with this email."));
 
 		// Delete previous OTP if present
 		otpRepository.findTopByUserOrderByCreatedAtDesc(user).ifPresent(otpRepository::delete);
@@ -125,46 +127,43 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 	@Override
 	public void verifyOtp(VerifyOtpRequest request) {
 
-		// Find user by email
-		User user = userRepository.findByEmail(request.getEmail())
-				.orElseThrow(() -> new RuntimeException("No account found with this email."));
+	    // Find user by email
+	    User user = userRepository.findByEmail(request.getEmail())
+	            .orElseThrow(() -> new UserNotFoundException("User not found."));
 
-		// Fetch latest OTP generated for the user
-		PasswordResetOtp passwordOtp = otpRepository.findTopByUserOrderByCreatedAtDesc(user)
-				.orElseThrow(() -> new RuntimeException("No OTP request found."));
+	    // Find OTP record
+	    PasswordResetOtp otpEntity = otpRepository.findTopByUserOrderByCreatedAtDesc(user)
+	            .orElseThrow(() -> new InvalidOtpException("OTP not found."));
 
-		// Check if OTP has already been used
-		if (passwordOtp.isUsed()) {
-			throw new RuntimeException("OTP has already been used.");
-		}
+	    // OTP already used
+	    if (otpEntity.isUsed()) {
+	        throw new InvalidOtpException("OTP has already been used.");
+	    }
 
-		// Check if OTP has expired
-		if (passwordOtp.getExpiresAt().isBefore(LocalDateTime.now())) {
-			throw new RuntimeException("OTP has expired.");
-		}
+	    // OTP expired
+	    if (otpEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
+	        throw new InvalidOtpException("OTP has expired.");
+	    }
 
-		// Increment failed attempts for incorrect OTP
-		if (!passwordOtp.getOtp().equals(request.getOtp())) {
+	    // Maximum attempts reached
+	    if (otpEntity.getAttempts() >= 5) {
+	        throw new InvalidOtpException("Maximum OTP attempts exceeded.");
+	    }
 
-			passwordOtp.setAttempts(passwordOtp.getAttempts() + 1);
+	    // Incorrect OTP
+	    if (!otpEntity.getOtp().equals(request.getOtp())) {
 
-			// Lock OTP after 3 incorrect attempts
-			if (passwordOtp.getAttempts() >= 3) {
+	        otpEntity.setAttempts(otpEntity.getAttempts() + 1);
 
-				passwordOtp.setUsed(true);
+	        otpRepository.save(otpEntity);
 
-			}
+	        throw new InvalidOtpException("Invalid OTP.");
+	    }
 
-			otpRepository.save(passwordOtp);
+	    // OTP verified successfully
+	    otpEntity.setVerified(true);
 
-			throw new RuntimeException("Invalid OTP.");
-		}
-
-		// Mark OTP as verified
-		passwordOtp.setVerified(true);
-
-		otpRepository.save(passwordOtp);
-
+	    otpRepository.save(otpEntity);
 	}
 
 	/*
@@ -175,44 +174,51 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 	@Override
 	public void resetPassword(ResetPasswordRequest request) {
 
-		// Find user by email
-		User user = userRepository.findByEmail(request.getEmail())
-				.orElseThrow(() ->
-						new RuntimeException("No account found with this email."));
+	    // Find user by email
+	    User user = userRepository.findByEmail(request.getEmail())
+	            .orElseThrow(() -> new UserNotFoundException("User not found."));
 
-		// Fetch latest OTP generated for the user
-		PasswordResetOtp passwordOtp = otpRepository
-				.findTopByUserOrderByCreatedAtDesc(user)
-				.orElseThrow(() ->
-						new RuntimeException("No OTP request found."));
+	    // Find OTP record
+	    PasswordResetOtp otpEntity = otpRepository.findTopByUserOrderByCreatedAtDesc(user)
+	            .orElseThrow(() -> new InvalidOtpException("OTP not found."));
 
-		// OTP must be verified before password reset
-		if (!passwordOtp.isVerified()) {
-			throw new RuntimeException("OTP verification required.");
-		}
+	    // OTP must be verified first
+	    if (!otpEntity.isVerified()) {
+	        throw new InvalidOtpException("Please verify your OTP first.");
+	    }
 
-		// OTP must not be expired
-		if (passwordOtp.getExpiresAt().isBefore(LocalDateTime.now())) {
-			throw new RuntimeException("OTP has expired.");
-		}
+	    // OTP already used
+	    if (otpEntity.isUsed()) {
+	        throw new InvalidOtpException("OTP has already been used.");
+	    }
 
-		// OTP must not be reused
-		if (passwordOtp.isUsed()) {
-			throw new RuntimeException("OTP has already been used.");
-		}
+	    // Update password
+	    user.setPasswordHash(
+	            passwordEncoder.encode(request.getNewPassword())
+	    );
 
-		// Update password
-		user.setPasswordHash(
-				passwordEncoder.encode(request.getNewPassword())
-		);
+	    userRepository.save(user);
 
-		userRepository.save(user);
+	    // Mark OTP as used
+	    otpEntity.setUsed(true);
 
-		// Mark OTP as used
-		passwordOtp.setUsed(true);
+	    otpRepository.save(otpEntity);
 
-		otpRepository.save(passwordOtp);
+	    // Build confirmation email
+	    String html = htmlEmailBuilder.buildEmail(
+	            com.sandbox.mail.EmailTemplateType.PASSWORD_CHANGED,
+	            "Password Changed Successfully",
+	            "Your Sandbox account password has been changed successfully.",
+	            null,
+	            null
+	    );
 
+	    // Send confirmation email
+	    emailService.sendEmail(
+	            user.getEmail(),
+	            "Sandbox Password Changed",
+	            html
+	    );
 	}
 
 }

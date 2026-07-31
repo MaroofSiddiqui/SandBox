@@ -60,7 +60,7 @@ public class PasswordResetController {
      * STEP 3
      * Changes user's password.
      */
-    @PostMapping("/reset")
+    @PostMapping("/reset-password")
     public ResponseEntity<String> resetPassword(
             @RequestBody ResetPasswordRequest request) {
 

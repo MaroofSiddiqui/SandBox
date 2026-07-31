@@ -16,10 +16,6 @@ public class ResetPasswordRequest {
     @Email(message = "Invalid email format")
     private String email;
 
-    // Verified OTP
-    @NotBlank(message = "OTP is required")
-    private String otp;
-
     // New password
     @NotBlank(message = "Password is required")
     @Size(min = 8, message = "Password must be at least 8 characters")
@@ -35,15 +31,6 @@ public class ResetPasswordRequest {
         this.email = email;
     }
 
-    // Returns OTP
-    public String getOtp() {
-        return otp;
-    }
-
-    // Sets OTP
-    public void setOtp(String otp) {
-        this.otp = otp;
-    }
 
     // Returns new password
     public String getNewPassword() {
