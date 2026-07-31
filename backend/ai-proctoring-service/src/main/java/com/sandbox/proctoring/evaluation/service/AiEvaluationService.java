@@ -8,6 +8,7 @@ import com.sandbox.proctoring.evaluation.model.Question;
 import com.sandbox.proctoring.evaluation.model.TestCase;
 import com.sandbox.proctoring.evaluation.repository.EvaluationRepository;
 import com.sandbox.proctoring.evaluation.repository.QuestionRepository;
+import com.sandbox.proctoring.evaluation.exception.ResourceNotFoundException;
 
 import java.util.List;
 import java.util.Optional;
@@ -81,15 +82,13 @@ public class AiEvaluationService {
 
     // New Method: Fetch test cases from MongoDB using questionId and evaluate
     public AiEvaluationResult processAndSaveEvaluationForQuestion(String sourceCode, int languageId, String questionId) {
-        // 1. Fetch question and its test cases from database
-        Question question = questionRepository.findById(questionId).orElse(null);
+        // 1. Database se question fetch karein, agar na mile toh exception throw karein
+        Question question = questionRepository.findById(questionId)
+            .orElseThrow(() -> new ResourceNotFoundException("Question not found with id: " + questionId));
         
-        List<TestCase> testCases;
-        if (question != null && question.getTestCases() != null && !question.getTestCases().isEmpty()) {
-            testCases = question.getTestCases();
-        } else {
-            // Fallback mock test cases if question ID is not found in DB
-            testCases = List.of(new TestCase("default_input", "default_output"));
+        List<TestCase> testCases = question.getTestCases();
+        if (testCases == null || testCases.isEmpty()) {
+            throw new RuntimeException("No test cases found for this question!");
         }
 
         int passedCount = 0;
