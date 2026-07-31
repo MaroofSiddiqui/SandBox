@@ -21,4 +21,5 @@ public class CodeSubmission {
     private String status;  // Pending, Accepted, Wrong Answer
     private String output;  
     private double score;
+    private String questionId;
 }

@@ -63,16 +63,10 @@ public class AiEvaluationController {
  // POST endpoint to submit code, execute via Judge0 with test cases, and save into MongoDB
     @PostMapping("/submit-and-save")
     public AiEvaluationResult submitAndSaveCode(@RequestBody CodeSubmission request) {
-        // Agar request mein test cases nahi aa rahe hain, toh aap default mock test cases bhej sakte hain
-        List<TestCase> mockTestCases = List.of(
-            new TestCase("5", "5"), // Example input and expected output
-            new TestCase("10", "10")
-        );
-        
-        return evaluationService.processAndSaveEvaluationWithTestCases(
+        return evaluationService.processAndSaveEvaluationForQuestion(
             request.getSourceCode(), 
             request.getLanguageId(), 
-            mockTestCases
+            request.getQuestionId()
         );
     }
 }
