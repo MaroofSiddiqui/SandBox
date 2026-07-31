@@ -1,2 +1,11 @@
 /.metadata/
 **/application.properties
+
+# Eclipse
+.project
+.classpath
+.settings/
+.factorypath
+
+# Maven
+target/
