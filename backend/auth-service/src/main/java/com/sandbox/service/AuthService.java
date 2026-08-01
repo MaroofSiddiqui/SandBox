@@ -5,10 +5,14 @@ import org.springframework.stereotype.Service;
 
 import com.sandbox.dto.AuthResponse;
 import com.sandbox.dto.LoginRequest;
+import com.sandbox.dto.RegisterRequest;
+import com.sandbox.entity.Role;
 import com.sandbox.entity.User;
+import com.sandbox.repository.RoleRepository;
 import com.sandbox.repository.UserRepository;
 import com.sandbox.security.JwtService;
 import com.sandbox.exception.InvalidCredentialsException;
+import com.sandbox.exception.ResourceNotFoundException;
 import com.sandbox.exception.AccountInactiveException;
 
 /*
@@ -63,6 +67,12 @@ public class AuthService {
 	 */
 	private final JwtService jwtService;
 
+	// Accesses application roles
+	private final RoleRepository roleRepository;
+
+	// Sends verification email after registration
+	private final EmailVerificationService emailVerificationService;
+
 	/*
 	 * CONSTRUCTOR DEPENDENCY INJECTION
 	 *
@@ -72,11 +82,60 @@ public class AuthService {
 	 *
 	 * when AuthService is created.
 	 */
-	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
+			RoleRepository roleRepository, EmailVerificationService emailVerificationService) {
 
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
+		this.roleRepository = roleRepository;
+		this.emailVerificationService = emailVerificationService;
+	}
+
+	/*
+	 * REGISTER
+	 *
+	 * Creates a new public CANDIDATE account.
+	 *
+	 * Flow: - Check duplicate email - Load CANDIDATE role - Hash password - Create
+	 * unverified user - Save user - Send verification email
+	 */
+	public void register(RegisterRequest request) {
+
+		// Prevent duplicate accounts
+		if (userRepository.existsByEmail(request.getEmail())) {
+			throw new IllegalArgumentException("An account with this email already exists.");
+		}
+
+		// Public registration always creates a CANDIDATE
+		Role candidateRole = roleRepository.findByName("CANDIDATE")
+				.orElseThrow(() -> new ResourceNotFoundException("CANDIDATE role not found."));
+
+		// Create new user
+		User user = new User();
+
+		user.setName(request.getName());
+		user.setEmail(request.getEmail());
+
+		// Never store plain-text passwords
+		user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+
+		// Role is controlled by backend
+		user.setRole(candidateRole);
+
+		// Public candidate is not assigned to an organization yet
+		user.setOrganization(null);
+
+		// Account exists but email must still be verified
+		user.setEmailVerified(false);
+
+		user.setStatus("ACTIVE");
+
+		// Save user first so it receives a database ID
+		User savedUser = userRepository.save(user);
+
+		// Generate token and send verification email
+		emailVerificationService.sendVerificationEmail(savedUser);
 	}
 
 	/*
@@ -153,14 +212,17 @@ public class AuthService {
 			 */
 			throw new AccountInactiveException("User account is inactive");
 		}
-		
-		// Users of an inactive organization cannot log in
-		if (user.getOrganization() != null
-		        && !"ACTIVE".equals(user.getOrganization().getStatus())) {
 
-		    throw new AccountInactiveException(
-		            "Organization account is inactive"
-		    );
+		// Users of an inactive organization cannot log in
+		if (user.getOrganization() != null && !"ACTIVE".equals(user.getOrganization().getStatus())) {
+
+			throw new AccountInactiveException("Organization account is inactive");
+		}
+
+		// Block login until email verification is completed
+		if (!user.isEmailVerified()) {
+
+			throw new AccountInactiveException("Please verify your email before signing in.");
 		}
 
 		/*
@@ -207,5 +269,13 @@ public class AuthService {
 				"Bearer",
 
 				user.getId(), user.getName(), user.getEmail(), user.getRole().getName(), organizationId);
+	}
+
+	public RoleRepository getRoleRepository() {
+		return roleRepository;
+	}
+
+	public EmailVerificationService getEmailVerificationService() {
+		return emailVerificationService;
 	}
 }

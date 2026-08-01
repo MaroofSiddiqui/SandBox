@@ -1,16 +1,50 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+
 import Login from "./pages/Login";
 import HrDashboard from "./pages/HrDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import CandidateDashboard from "./pages/CandidateDashboard";
+import VerifyEmail from "./pages/VerifyEmail";
+
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
     <Routes>
-      {/* Public Route */}
-      <Route path="/login" element={<Login />} />
 
-      {/* HR Only */}
+      {/* =========================
+          PUBLIC ROUTES
+         ========================= */}
+
+      <Route
+        path="/login"
+        element={<Login />}
+      />
+
+      <Route
+        path="/verify-email"
+        element={<VerifyEmail />}
+      />
+
+
+      {/* =========================
+          CANDIDATE ROUTES
+         ========================= */}
+
+      <Route
+        path="/candidate"
+        element={
+          <ProtectedRoute allowedRoles={["CANDIDATE"]}>
+            <CandidateDashboard />
+          </ProtectedRoute>
+        }
+      />
+
+
+      {/* =========================
+          HR ROUTES
+         ========================= */}
+
       <Route
         path="/hr"
         element={
@@ -20,7 +54,11 @@ function App() {
         }
       />
 
-      {/* Super Admin Only */}
+
+      {/* =========================
+          SUPER ADMIN ROUTES
+         ========================= */}
+
       <Route
         path="/super-admin"
         element={
@@ -30,11 +68,36 @@ function App() {
         }
       />
 
-      {/* Default */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
 
-      {/* Unknown Routes */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      {/* =========================
+          DEFAULT ROUTE
+         ========================= */}
+
+      <Route
+        path="/"
+        element={
+          <Navigate
+            to="/login"
+            replace
+          />
+        }
+      />
+
+
+      {/* =========================
+          UNKNOWN ROUTES
+         ========================= */}
+
+      <Route
+        path="*"
+        element={
+          <Navigate
+            to="/login"
+            replace
+          />
+        }
+      />
+
     </Routes>
   );
 }

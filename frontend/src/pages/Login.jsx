@@ -56,14 +56,23 @@ function Login() {
       const user = await login(email.trim(), password);
 
       if (user.role === "SUPER_ADMIN") {
-        navigate("/super-admin", { replace: true });
-      } else if (user.role === "HR") {
-        navigate("/hr", { replace: true });
-      } else {
-        setServerError(
-          "Your account does not have access to this application."
-        );
-      }
+
+  navigate("/super-admin", { replace: true });
+
+} else if (user.role === "HR") {
+
+  navigate("/hr", { replace: true });
+
+} else if (user.role === "CANDIDATE") {
+
+  navigate("/candidate", { replace: true });
+
+} else {
+
+  setServerError(
+    "Your account does not have access to this application."
+  );
+}
     } catch (err) {
       setServerError(
         err.response?.data?.message ||
