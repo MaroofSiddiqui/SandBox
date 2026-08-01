@@ -1,10 +1,9 @@
 package com.sandbox.assessment.service;
 
-import com.sandbox.assessment.entity.Question;
+import com.sandbox.assessment.dto.QuestionDto;
 import java.util.List;
 
 public interface QuestionService {
-    Question createQuestion(Question question);
-    List<Question> getAllQuestions();
-    Question getQuestionById(Long id);
+    QuestionDto createQuestion(QuestionDto dto);
+    List<QuestionDto> getAllQuestions();
 }
