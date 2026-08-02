@@ -1,16 +1,89 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+
+import Home from "./pages/Home";
+import About from "./pages/About";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import VerifyOtp from "./pages/VerifyOtp";
+import ResetPassword from "./pages/ResetPassword";
+import VerifyEmail from "./pages/VerifyEmail";
+import NotFound from "./pages/NotFound";
+import AccessDenied from "./pages/AccessDenied";
+
 import HrDashboard from "./pages/HrDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import CandidateDashboard from "./pages/CandidateDashboard";
+
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
     <Routes>
-      {/* Public Route */}
-      <Route path="/login" element={<Login />} />
 
-      {/* HR Only */}
+      {/* =========================
+          PUBLIC ROUTES
+         ========================= */}
+
+      <Route
+        path="/login"
+        element={<Login />}
+      />
+
+      <Route
+        path="/register"
+        element={<Register />}
+      />
+
+      <Route
+        path="/forgot-password"
+        element={<ForgotPassword />}
+      />
+
+      <Route
+        path="/verify-otp"
+        element={<VerifyOtp />}
+      />
+
+      <Route
+        path="/reset-password"
+        element={<ResetPassword />}
+      />
+
+      <Route
+        path="/verify-email"
+        element={<VerifyEmail />}
+      />
+      
+      <Route
+        path="/access-denied"
+        element={<AccessDenied />}
+      />
+
+      <Route
+        path="/about"
+        element={<About />}
+      />
+
+
+      {/* =========================
+          CANDIDATE ROUTES
+         ========================= */}
+
+      <Route
+        path="/candidate"
+        element={
+          <ProtectedRoute allowedRoles={["CANDIDATE"]}>
+            <CandidateDashboard />
+          </ProtectedRoute>
+        }
+      />
+
+
+      {/* =========================
+          HR ROUTES
+         ========================= */}
+
       <Route
         path="/hr"
         element={
@@ -20,7 +93,11 @@ function App() {
         }
       />
 
-      {/* Super Admin Only */}
+
+      {/* =========================
+          SUPER ADMIN ROUTES
+         ========================= */}
+
       <Route
         path="/super-admin"
         element={
@@ -30,11 +107,26 @@ function App() {
         }
       />
 
-      {/* Default */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
 
-      {/* Unknown Routes */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      {/* =========================
+          DEFAULT ROUTE
+         ========================= */}
+
+      <Route
+        path="/"
+        element={<Home />}
+      />
+
+
+      {/* =========================
+          404 - UNKNOWN ROUTES
+         ========================= */}
+
+      <Route
+        path="*"
+        element={<NotFound />}
+      />
+
     </Routes>
   );
 }

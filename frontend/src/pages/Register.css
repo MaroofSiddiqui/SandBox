@@ -1,0 +1,135 @@
+/* =========================
+   REGISTER PAGE
+========================= */
+
+.register-form-section {
+  padding-top: 35px;
+  padding-bottom: 45px;
+}
+
+.register-container {
+  max-width: 430px;
+}
+
+.register-heading {
+  margin-bottom: 25px;
+}
+
+.register-container .form-group {
+  margin-bottom: 17px;
+}
+
+/* =========================
+   PASSWORD REQUIREMENTS
+========================= */
+
+.password-requirements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 12px;
+  margin-top: 10px;
+}
+
+.password-rule {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #94a3b8;
+  font-size: 11px;
+  transition: color 0.2s ease;
+}
+
+.password-rule.valid {
+  color: #16a34a;
+}
+
+/* =========================
+   LOGIN LINK
+========================= */
+
+.register-login-link {
+  margin-top: 19px;
+  text-align: center;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.register-login-link button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.register-login-link button:hover {
+  text-decoration: underline;
+}
+
+/* =========================
+   REGISTRATION SUCCESS
+========================= */
+
+.register-success {
+  width: 100%;
+  max-width: 430px;
+  text-align: center;
+}
+
+.register-success-icon {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.register-success h2 {
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-size: 30px;
+  letter-spacing: -0.6px;
+}
+
+.register-success > p:not(.login-eyebrow) {
+  margin: 0 0 12px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.register-success strong {
+  color: #334155;
+}
+
+.register-success-help {
+  margin-bottom: 28px !important;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 900px) {
+  .register-form-section {
+    padding-top: 45px;
+    padding-bottom: 45px;
+  }
+}
+
+@media (max-width: 500px) {
+  .register-form-section {
+    padding: 35px 22px;
+  }
+
+  .password-requirements {
+    gap: 7px 10px;
+  }
+}

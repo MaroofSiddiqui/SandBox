@@ -1,14 +1,21 @@
 package com.sandbox.service;
 
+import java.time.LocalDateTime;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.sandbox.dto.AuthResponse;
 import com.sandbox.dto.LoginRequest;
+import com.sandbox.dto.RegisterRequest;
+import com.sandbox.entity.Role;
 import com.sandbox.entity.User;
+import com.sandbox.exception.AccountLockedException;
+import com.sandbox.repository.RoleRepository;
 import com.sandbox.repository.UserRepository;
 import com.sandbox.security.JwtService;
 import com.sandbox.exception.InvalidCredentialsException;
+import com.sandbox.exception.ResourceNotFoundException;
 import com.sandbox.exception.AccountInactiveException;
 
 /*
@@ -63,6 +70,12 @@ public class AuthService {
 	 */
 	private final JwtService jwtService;
 
+	// Accesses application roles
+	private final RoleRepository roleRepository;
+
+	// Sends verification email after registration
+	private final EmailVerificationService emailVerificationService;
+
 	/*
 	 * CONSTRUCTOR DEPENDENCY INJECTION
 	 *
@@ -72,11 +85,60 @@ public class AuthService {
 	 *
 	 * when AuthService is created.
 	 */
-	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
+			RoleRepository roleRepository, EmailVerificationService emailVerificationService) {
 
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
+		this.roleRepository = roleRepository;
+		this.emailVerificationService = emailVerificationService;
+	}
+
+	/*
+	 * REGISTER
+	 *
+	 * Creates a new public CANDIDATE account.
+	 *
+	 * Flow: - Check duplicate email - Load CANDIDATE role - Hash password - Create
+	 * unverified user - Save user - Send verification email
+	 */
+	public void register(RegisterRequest request) {
+
+		// Prevent duplicate accounts
+		if (userRepository.existsByEmail(request.getEmail())) {
+			throw new IllegalArgumentException("An account with this email already exists.");
+		}
+
+		// Public registration always creates a CANDIDATE
+		Role candidateRole = roleRepository.findByName("CANDIDATE")
+				.orElseThrow(() -> new ResourceNotFoundException("CANDIDATE role not found."));
+
+		// Create new user
+		User user = new User();
+
+		user.setName(request.getName());
+		user.setEmail(request.getEmail());
+
+		// Never store plain-text passwords
+		user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+
+		// Role is controlled by backend
+		user.setRole(candidateRole);
+
+		// Public candidate is not assigned to an organization yet
+		user.setOrganization(null);
+
+		// Account exists but email must still be verified
+		user.setEmailVerified(false);
+
+		user.setStatus("ACTIVE");
+
+		// Save user first so it receives a database ID
+		User savedUser = userRepository.save(user);
+
+		// Generate token and send verification email
+		emailVerificationService.sendVerificationEmail(savedUser);
 	}
 
 	/*
@@ -95,117 +157,140 @@ public class AuthService {
 	public AuthResponse login(LoginRequest request) {
 
 		/*
-		 * STEP 1: FIND USER BY EMAIL
+		 * STEP 1: FIND USER
 		 *
-		 * Search the users table using the email received in LoginRequest.
-		 *
-		 * findByEmail() returns Optional<User>.
+		 * Do not reveal whether the email exists.
 		 */
 		User user = userRepository.findByEmail(request.getEmail())
-
-				/*
-				 * If no user exists with this email, throw InvalidCredentialsException.
-				 *
-				 * We deliberately use the generic message "Invalid email or password" instead
-				 * of saying "Email does not exist".
-				 *
-				 * This avoids revealing whether a particular email account exists in the
-				 * system.
-				 */
 				.orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
 
 		/*
-		 * STEP 2: VERIFY PASSWORD
+		 * STEP 2: CHECK TEMPORARY ACCOUNT LOCK
 		 *
-		 * request.getPassword() -> Plain-text password entered during login.
-		 *
-		 * user.getPasswordHash() -> BCrypt hash stored in the database.
-		 *
-		 * PasswordEncoder.matches() safely checks whether the entered password
-		 * corresponds to the stored hash.
-		 *
-		 * We do NOT decrypt the stored password.
+		 * If lockedUntil exists and is still in the future, the user is not allowed to
+		 * attempt authentication.
+		 */
+		if (user.getLockedUntil() != null) {
+
+			if (user.getLockedUntil().isAfter(LocalDateTime.now())) {
+
+				throw new AccountLockedException(
+						"Too many failed login attempts. Account is temporarily locked. Please try again later.");
+			}
+
+			/*
+			 * Lock period has expired.
+			 *
+			 * Automatically unlock the account and reset the failed-attempt counter.
+			 */
+			user.setLockedUntil(null);
+			user.setFailedLoginAttempts(0);
+
+			userRepository.save(user);
+		}
+
+		/*
+		 * STEP 3: VERIFY PASSWORD
 		 */
 		if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
 
+			int failedAttempts = user.getFailedLoginAttempts() + 1;
+
+			user.setFailedLoginAttempts(failedAttempts);
+
 			/*
-			 * Password does not match.
-			 *
-			 * InvalidCredentialsException is handled by GlobalExceptionHandler and becomes:
-			 *
-			 * HTTP 401 Unauthorized.
+			 * LOCK ACCOUNT AFTER 5 FAILED ATTEMPTS
 			 */
+			if (failedAttempts >= 5) {
+
+				user.setLockedUntil(LocalDateTime.now().plusMinutes(30));
+
+				userRepository.save(user);
+
+				throw new AccountLockedException(
+						"Too many failed login attempts. Account has been locked for 30 minutes.");
+			}
+
+			/*
+			 * Save failed attempt count.
+			 */
+			userRepository.save(user);
+
 			throw new InvalidCredentialsException("Invalid email or password");
 		}
 
 		/*
-		 * STEP 3: CHECK ACCOUNT STATUS
+		 * STEP 4: PASSWORD IS CORRECT
 		 *
-		 * Even if email and password are correct, an INACTIVE user should not be
-		 * allowed to log in.
+		 * Reset previous failed attempts.
 		 */
-		// Block login if the account has been deactivated
-		if (!"ACTIVE".equals(user.getStatus())) {
-			/*
-			 * Currently a generic RuntimeException is thrown.
-			 *
-			 * This indicates that the account exists but has been disabled/inactivated.
-			 */
-			throw new AccountInactiveException("User account is inactive");
-		}
-		
-		// Users of an inactive organization cannot log in
-		if (user.getOrganization() != null
-		        && !"ACTIVE".equals(user.getOrganization().getStatus())) {
+		if (user.getFailedLoginAttempts() > 0 || user.getLockedUntil() != null) {
 
-		    throw new AccountInactiveException(
-		            "Organization account is inactive"
-		    );
+			user.setFailedLoginAttempts(0);
+			user.setLockedUntil(null);
+
+			userRepository.save(user);
 		}
 
 		/*
-		 * STEP 4: GENERATE JWT
-		 *
-		 * At this point:
-		 *
-		 * ✓ User exists ✓ Password is correct ✓ Account is ACTIVE
-		 *
-		 * So authentication has succeeded.
-		 *
-		 * JwtService generates a signed token containing information such as:
-		 *
-		 * - email - userId - role - organizationId - issued time - expiration time
+		 * STEP 5: CHECK USER STATUS
+		 */
+		if (!"ACTIVE".equals(user.getStatus())) {
+
+			throw new AccountInactiveException("User account is inactive");
+		}
+
+		/*
+		 * STEP 6: CHECK ORGANIZATION STATUS
+		 */
+		if (user.getOrganization() != null && !"ACTIVE".equals(user.getOrganization().getStatus())) {
+
+			throw new AccountInactiveException("Organization account is inactive");
+		}
+
+		/*
+		 * STEP 7: CHECK EMAIL VERIFICATION
+		 */
+		if (!user.isEmailVerified()) {
+
+			throw new AccountInactiveException("Please verify your email before signing in.");
+		}
+
+		/*
+		 * STEP 8: GENERATE JWT
 		 */
 		String token = jwtService.generateToken(user);
 
 		/*
-		 * STEP 5: GET ORGANIZATION ID
-		 *
-		 * HR and CANDIDATE normally belong to an organization.
-		 *
-		 * SUPER_ADMIN has organization = null.
-		 *
-		 * Ternary operator:
-		 *
-		 * organization exists ↓ return its ID
-		 *
-		 * organization is null ↓ return null
+		 * STEP 9: GET ORGANIZATION ID
 		 */
 		Long organizationId = user.getOrganization() != null ? user.getOrganization().getId() : null;
 
 		/*
-		 * STEP 6: CREATE LOGIN RESPONSE
-		 *
-		 * Return the JWT together with safe user information.
-		 *
-		 * Notice that passwordHash is NOT included.
+		 * STEP 10: RETURN LOGIN RESPONSE
 		 */
-		return new AuthResponse(token,
+		return new AuthResponse(
 
-				// Tells the client to use:
-				// Authorization: Bearer <token>
+				token,
+
 				"Bearer",
 
-				user.getId(), user.getName(), user.getEmail(), user.getRole().getName(), organizationId);
+				user.getId(),
+
+				user.getName(),
+
+				user.getEmail(),
+
+				user.getRole().getName(),
+
+				organizationId);
+	}
+
+	public RoleRepository getRoleRepository() {
+		return roleRepository;
+	}
+
+	public EmailVerificationService getEmailVerificationService() {
+		return emailVerificationService;
 	}
 }

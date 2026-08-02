@@ -1,8 +1,19 @@
 /.metadata/
+
+# Spring Boot configuration
+**/application.properties
+
+# Eclipse
+.project
+.classpath
+.settings/
+.factorypath
+
+# Maven / compiled output
+target/
+**/target/
+**/bin/
+
 # Local upload storage (video evidence)
 **/uploads/
 **/uploads/evidence/
-
-# Eclipse / IDE compiled binaries
-**/bin/
-**/target/
