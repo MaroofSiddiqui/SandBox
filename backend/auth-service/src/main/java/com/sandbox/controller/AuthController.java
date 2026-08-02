@@ -8,6 +8,11 @@ import com.sandbox.dto.LoginRequest;
 import com.sandbox.dto.RegisterRequest;
 import com.sandbox.service.AuthService;
 
+import com.sandbox.exception.RateLimitExceededException;
+import com.sandbox.security.ratelimit.LoginRateLimiter;
+
+import jakarta.servlet.http.HttpServletRequest;
+
 import jakarta.validation.Valid;
 
 /*
@@ -38,6 +43,7 @@ public class AuthController {
 	 * - Generating the JWT token
 	 */
 	private final AuthService authService;
+	private final LoginRateLimiter loginRateLimiter;
 
 	/*
 	 * Constructor Dependency Injection.
@@ -45,8 +51,12 @@ public class AuthController {
 	 * Spring automatically provides the AuthService object when it creates this
 	 * controller.
 	 */
-	public AuthController(AuthService authService) {
-		this.authService = authService;
+	public AuthController(
+	        AuthService authService,
+	        LoginRateLimiter loginRateLimiter) {
+
+	    this.authService = authService;
+	    this.loginRateLimiter = loginRateLimiter;
 	}
 
 	/*
@@ -83,32 +93,37 @@ public class AuthController {
 	 */
 	@PostMapping("/login")
 	public ResponseEntity<?> login(
+	        @Valid @RequestBody LoginRequest request,
+	        HttpServletRequest httpRequest) {
 
-			/*
-			 * @RequestBody converts the incoming JSON request into a LoginRequest Java
-			 * object.
-			 *
-			 * @Valid tells Spring to run the validation rules defined inside LoginRequest.
-			 *
-			 * For example:
-			 * 
-			 * @NotBlank
-			 * 
-			 * @Email
-			 */
-			@Valid @RequestBody LoginRequest request) {
+	    /*
+	     * Get the IP address of the client making
+	     * the login request.
+	     *
+	     * For local development this will normally
+	     * be 127.0.0.1 or 0:0:0:0:0:0:0:1.
+	     */
+	    String clientIp = httpRequest.getRemoteAddr();
 
-		/*
-		 * Authentication logic is delegated to AuthService.
-		 *
-		 * If credentials are correct: AuthService generates and returns a JWT.
-		 *
-		 * If credentials are incorrect: an authentication exception is thrown and
-		 * handled by our GlobalExceptionHandler.
-		 *
-		 * ResponseEntity.ok() returns HTTP 200 OK.
-		 */
-		return ResponseEntity.ok(authService.login(request));
+	    /*
+	     * Check whether this client has exceeded
+	     * the allowed number of login requests.
+	     */
+	    if (!loginRateLimiter.isAllowed(clientIp)) {
+
+	        throw new RateLimitExceededException(
+	                "Too many login attempts. Please try again later."
+	        );
+	    }
+
+	    /*
+	     * Rate limit passed.
+	     *
+	     * Continue with normal authentication.
+	     */
+	    return ResponseEntity.ok(
+	            authService.login(request)
+	    );
 	}
 
 	/*

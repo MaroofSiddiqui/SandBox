@@ -10,6 +10,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.sandbox.exception.RateLimitExceededException;
+
 /*
  * GLOBAL EXCEPTION HANDLER
  *
@@ -344,5 +346,28 @@ public class GlobalExceptionHandler {
         response.put("message", ex.getMessage());
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+    
+    /*
+     * RATE LIMIT EXCEEDED
+     *
+     * Triggered when a client sends too many login
+     * requests within the configured time window.
+     *
+     * HTTP Status: 429 Too Many Requests
+     */
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<?> handleRateLimitExceeded(
+            RateLimitExceededException ex) {
+
+        Map<String, Object> response = new LinkedHashMap<>();
+
+        response.put("status", HttpStatus.TOO_MANY_REQUESTS.value());
+        response.put("error", "Too Many Requests");
+        response.put("message", ex.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(response);
     }
 }

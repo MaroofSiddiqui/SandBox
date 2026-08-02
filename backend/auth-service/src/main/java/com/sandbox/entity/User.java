@@ -191,6 +191,39 @@ public class User {
 	 */
 	@Column(nullable = false, length = 20)
 	private String status;
+	
+	/*
+	 * FAILED LOGIN ATTEMPTS
+	 *
+	 * Stores the number of consecutive failed login attempts.
+	 *
+	 * Successful login -> reset to 0
+	 *
+	 * After reaching the configured maximum attempts,
+	 * the account is temporarily locked.
+	 */
+	@Column(name = "failed_login_attempts", nullable = false)
+	@Builder.Default
+	private int failedLoginAttempts = 0;
+
+
+	/*
+	 * ACCOUNT LOCK EXPIRY
+	 *
+	 * Stores the time until which the account is locked.
+	 *
+	 * null -> Account is not temporarily locked
+	 *
+	 * Example:
+	 *
+	 * 5 failed attempts
+	 *       ↓
+	 * lockedUntil = current time + 30 minutes
+	 *       ↓
+	 * Login rejected until this time expires
+	 */
+	@Column(name = "locked_until")
+	private LocalDateTime lockedUntil;
 
 	/*
 	 * CREATED AT
@@ -228,26 +261,17 @@ public class User {
 	@PrePersist
 	protected void onCreate() {
 
-		/*
-		 * If no status was explicitly provided, make the new account ACTIVE by default.
-		 */
-		if (status == null) {
-			status = "ACTIVE";
-		}
+	    if (status == null) {
+	        status = "ACTIVE";
+	    }
 
-		/*
-		 * Every newly registered user must verify their email before accessing the
-		 * system.
-		 */
-		emailVerified = false;
+	    emailVerified = false;
 
-		/*
-		 * When the user is first created:
-		 *
-		 * createdAt = current time updatedAt = current time
-		 */
-		createdAt = LocalDateTime.now();
-		updatedAt = LocalDateTime.now();
+	    failedLoginAttempts = 0;
+	    lockedUntil = null;
+
+	    createdAt = LocalDateTime.now();
+	    updatedAt = LocalDateTime.now();
 	}
 
 	/*
