@@ -1,10 +1,15 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import VerifyOtp from "./pages/VerifyOtp";
+import ResetPassword from "./pages/ResetPassword";
+import VerifyEmail from "./pages/VerifyEmail";
+
 import HrDashboard from "./pages/HrDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import CandidateDashboard from "./pages/CandidateDashboard";
-import VerifyEmail from "./pages/VerifyEmail";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -22,9 +27,34 @@ function App() {
       />
 
       <Route
+        path="/register"
+        element={<Register />}
+      />
+
+      <Route
+        path="/forgot-password"
+        element={<ForgotPassword />}
+      />
+
+      <Route
         path="/verify-email"
         element={<VerifyEmail />}
       />
+
+      <Route
+  path="/verify-otp"
+  element={<VerifyOtp />}
+/>
+
+<Route
+  path="/verify-email"
+  element={<VerifyEmail />}
+/>
+
+      <Route
+  path="/reset-password"
+  element={<ResetPassword />}
+/>
 
 
       {/* =========================

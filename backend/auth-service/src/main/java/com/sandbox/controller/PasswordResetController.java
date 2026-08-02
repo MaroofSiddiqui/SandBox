@@ -8,31 +8,37 @@ import com.sandbox.dto.ResetPasswordRequest;
 import com.sandbox.dto.VerifyOtpRequest;
 import com.sandbox.service.PasswordResetService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /*
  * PASSWORD RESET CONTROLLER
  *
  * Exposes APIs required for:
- * - Send OTP
- * - Verify OTP
- * - Reset Password
+ *
+ * 1. Send OTP
+ * 2. Verify OTP
+ * 3. Reset Password
  */
 @RestController
 @RequestMapping("/api/auth/password")
 @RequiredArgsConstructor
 public class PasswordResetController {
 
-    // Handles forgot password business logic
+    // Handles password reset business logic
     private final PasswordResetService passwordResetService;
+
 
     /*
      * STEP 1
-     * Sends OTP to user's email.
+     * SEND OTP
+     *
+     * POST:
+     * /api/auth/password/forgot
      */
     @PostMapping("/forgot")
     public ResponseEntity<String> forgotPassword(
-            @RequestBody ForgotPasswordRequest request) {
+            @Valid @RequestBody ForgotPasswordRequest request) {
 
         passwordResetService.sendOtp(request);
 
@@ -41,13 +47,17 @@ public class PasswordResetController {
         );
     }
 
+
     /*
      * STEP 2
-     * Verifies OTP entered by user.
+     * VERIFY OTP
+     *
+     * POST:
+     * /api/auth/password/verify-otp
      */
     @PostMapping("/verify-otp")
     public ResponseEntity<String> verifyOtp(
-            @RequestBody VerifyOtpRequest request) {
+            @Valid @RequestBody VerifyOtpRequest request) {
 
         passwordResetService.verifyOtp(request);
 
@@ -56,13 +66,17 @@ public class PasswordResetController {
         );
     }
 
+
     /*
      * STEP 3
-     * Changes user's password.
+     * RESET PASSWORD
+     *
+     * POST:
+     * /api/auth/password/reset-password
      */
     @PostMapping("/reset-password")
     public ResponseEntity<String> resetPassword(
-            @RequestBody ResetPasswordRequest request) {
+            @Valid @RequestBody ResetPasswordRequest request) {
 
         passwordResetService.resetPassword(request);
 
@@ -70,5 +84,4 @@ public class PasswordResetController {
                 "Password changed successfully."
         );
     }
-
 }
