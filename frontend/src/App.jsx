@@ -1,11 +1,15 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
+import Home from "./pages/Home";
+import About from "./pages/About";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import VerifyOtp from "./pages/VerifyOtp";
 import ResetPassword from "./pages/ResetPassword";
 import VerifyEmail from "./pages/VerifyEmail";
+import NotFound from "./pages/NotFound";
+import AccessDenied from "./pages/AccessDenied";
 
 import HrDashboard from "./pages/HrDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
@@ -37,24 +41,29 @@ function App() {
       />
 
       <Route
-        path="/verify-email"
-        element={<VerifyEmail />}
+        path="/verify-otp"
+        element={<VerifyOtp />}
       />
 
       <Route
-  path="/verify-otp"
-  element={<VerifyOtp />}
-/>
-
-<Route
-  path="/verify-email"
-  element={<VerifyEmail />}
-/>
+        path="/reset-password"
+        element={<ResetPassword />}
+      />
 
       <Route
-  path="/reset-password"
-  element={<ResetPassword />}
-/>
+        path="/verify-email"
+        element={<VerifyEmail />}
+      />
+      
+      <Route
+        path="/access-denied"
+        element={<AccessDenied />}
+      />
+
+      <Route
+        path="/about"
+        element={<About />}
+      />
 
 
       {/* =========================
@@ -105,27 +114,17 @@ function App() {
 
       <Route
         path="/"
-        element={
-          <Navigate
-            to="/login"
-            replace
-          />
-        }
+        element={<Home />}
       />
 
 
       {/* =========================
-          UNKNOWN ROUTES
+          404 - UNKNOWN ROUTES
          ========================= */}
 
       <Route
         path="*"
-        element={
-          <Navigate
-            to="/login"
-            replace
-          />
-        }
+        element={<NotFound />}
       />
 
     </Routes>
