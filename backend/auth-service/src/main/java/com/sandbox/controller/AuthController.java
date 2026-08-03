@@ -6,7 +6,11 @@ import org.springframework.web.bind.annotation.*;
 import com.sandbox.dto.AuthResponse;
 import com.sandbox.dto.LoginRequest;
 import com.sandbox.dto.RegisterRequest;
+import com.sandbox.dto.UpdateProfileRequest;
 import com.sandbox.service.AuthService;
+import com.sandbox.dto.ChangePasswordRequest;
+import com.sandbox.entity.User;
+import org.springframework.security.core.Authentication;
 
 import com.sandbox.exception.RateLimitExceededException;
 import com.sandbox.security.ratelimit.LoginRateLimiter;
@@ -51,12 +55,10 @@ public class AuthController {
 	 * Spring automatically provides the AuthService object when it creates this
 	 * controller.
 	 */
-	public AuthController(
-	        AuthService authService,
-	        LoginRateLimiter loginRateLimiter) {
+	public AuthController(AuthService authService, LoginRateLimiter loginRateLimiter) {
 
-	    this.authService = authService;
-	    this.loginRateLimiter = loginRateLimiter;
+		this.authService = authService;
+		this.loginRateLimiter = loginRateLimiter;
 	}
 
 	/*
@@ -92,38 +94,29 @@ public class AuthController {
 	 * @PostMapping("/login") maps HTTP POST requests to /auth/login to this method.
 	 */
 	@PostMapping("/login")
-	public ResponseEntity<?> login(
-	        @Valid @RequestBody LoginRequest request,
-	        HttpServletRequest httpRequest) {
+	public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
 
-	    /*
-	     * Get the IP address of the client making
-	     * the login request.
-	     *
-	     * For local development this will normally
-	     * be 127.0.0.1 or 0:0:0:0:0:0:0:1.
-	     */
-	    String clientIp = httpRequest.getRemoteAddr();
+		/*
+		 * Get the IP address of the client making the login request.
+		 *
+		 * For local development this will normally be 127.0.0.1 or 0:0:0:0:0:0:0:1.
+		 */
+		String clientIp = httpRequest.getRemoteAddr();
 
-	    /*
-	     * Check whether this client has exceeded
-	     * the allowed number of login requests.
-	     */
-	    if (!loginRateLimiter.isAllowed(clientIp)) {
+		/*
+		 * Check whether this client has exceeded the allowed number of login requests.
+		 */
+		if (!loginRateLimiter.isAllowed(clientIp)) {
 
-	        throw new RateLimitExceededException(
-	                "Too many login attempts. Please try again later."
-	        );
-	    }
+			throw new RateLimitExceededException("Too many login attempts. Please try again later.");
+		}
 
-	    /*
-	     * Rate limit passed.
-	     *
-	     * Continue with normal authentication.
-	     */
-	    return ResponseEntity.ok(
-	            authService.login(request)
-	    );
+		/*
+		 * Rate limit passed.
+		 *
+		 * Continue with normal authentication.
+		 */
+		return ResponseEntity.ok(authService.login(request));
 	}
 
 	/*
@@ -167,5 +160,61 @@ public class AuthController {
 		 */
 		return ResponseEntity.ok(java.util.Map.of("id", user.getId(), "name", user.getName(), "email", user.getEmail(),
 				"role", user.getRole().getName(), "status", user.getStatus()));
+	}
+
+	/*
+	 * CHANGE PASSWORD ENDPOINT
+	 *
+	 * URL: PUT /api/auth/change-password
+	 *
+	 * Protected endpoint.
+	 *
+	 * The logged-in user is identified from the JWT. The frontend does NOT send the
+	 * user's email.
+	 *
+	 * Request:
+	 *
+	 * { "currentPassword": "OldPassword@123", "newPassword": "NewPassword@123",
+	 * "confirmPassword": "NewPassword@123" }
+	 */
+	@PutMapping("/change-password")
+	public ResponseEntity<String> changePassword(@Valid @RequestBody ChangePasswordRequest request,
+			Authentication authentication) {
+
+		/*
+		 * Get the currently authenticated user.
+		 *
+		 * JwtAuthenticationFilter has already validated the JWT and stored this User
+		 * inside the SecurityContext.
+		 */
+		User authenticatedUser = (User) authentication.getPrincipal();
+
+		/*
+		 * Pass the authenticated user's email to the service.
+		 *
+		 * We deliberately do NOT accept email from the request body.
+		 */
+		authService.changePassword(authenticatedUser.getEmail(), request);
+
+		return ResponseEntity.ok("Password changed successfully.");
+	}
+	
+	@PutMapping("/profile")
+	public ResponseEntity<String> updateProfile(
+	        @Valid @RequestBody UpdateProfileRequest request,
+	        org.springframework.security.core.Authentication authentication) {
+
+	    /*
+	     * Get the currently authenticated user.
+	     *
+	     * We do NOT accept a user ID from the request.
+	     * The identity comes from the authenticated JWT.
+	     */
+	    com.sandbox.entity.User user =
+	            (com.sandbox.entity.User) authentication.getPrincipal();
+
+	    authService.updateProfile(user, request);
+
+	    return ResponseEntity.ok("Profile updated successfully.");
 	}
 }

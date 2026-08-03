@@ -6,8 +6,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.sandbox.dto.AuthResponse;
+import com.sandbox.dto.ChangePasswordRequest;
 import com.sandbox.dto.LoginRequest;
 import com.sandbox.dto.RegisterRequest;
+import com.sandbox.dto.UpdateProfileRequest;
 import com.sandbox.entity.Role;
 import com.sandbox.entity.User;
 import com.sandbox.exception.AccountLockedException;
@@ -142,6 +144,78 @@ public class AuthService {
 	}
 
 	/*
+	 * CHANGE PASSWORD
+	 *
+	 * Allows an authenticated user to change their password.
+	 *
+	 * Flow: - Identify logged-in user - Verify current password - Check new
+	 * password confirmation - Prevent reuse of current password - BCrypt encode new
+	 * password - Save updated password
+	 */
+	public void changePassword(String email, ChangePasswordRequest request) {
+
+		/*
+		 * STEP 1: FIND AUTHENTICATED USER
+		 */
+		User user = userRepository.findByEmail(email)
+				.orElseThrow(() -> new ResourceNotFoundException("User not found."));
+
+		/*
+		 * STEP 2: VERIFY CURRENT PASSWORD
+		 */
+		if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+
+			throw new InvalidCredentialsException("Current password is incorrect.");
+		}
+
+		/*
+		 * STEP 3: CHECK PASSWORD CONFIRMATION
+		 */
+		if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+
+			throw new IllegalArgumentException("New password and confirm password do not match.");
+		}
+
+		/*
+		 * STEP 4: PREVENT REUSING CURRENT PASSWORD
+		 */
+		if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
+
+			throw new IllegalArgumentException("New password must be different from current password.");
+		}
+
+		/*
+		 * STEP 5: ENCODE NEW PASSWORD
+		 */
+		String encodedPassword = passwordEncoder.encode(request.getNewPassword());
+
+		/*
+		 * STEP 6: UPDATE USER
+		 */
+		user.setPasswordHash(encodedPassword);
+
+		userRepository.save(user);
+	}
+
+	public void updateProfile(User user, UpdateProfileRequest request) {
+
+		/*
+		 * Only fields that the user is allowed to modify through self-service profile
+		 * editing are updated.
+		 *
+		 * Security-sensitive fields such as:
+		 *
+		 * - role - organization - status - emailVerified
+		 *
+		 * cannot be changed through this endpoint.
+		 */
+
+		user.setName(request.getName().trim());
+
+		userRepository.save(user);
+	}
+
+	/*
 	 * LOGIN METHOD
 	 *
 	 * Performs the complete authentication process.
@@ -269,6 +343,7 @@ public class AuthService {
 		/*
 		 * STEP 10: RETURN LOGIN RESPONSE
 		 */
+
 		return new AuthResponse(
 
 				token,
