@@ -15,6 +15,12 @@ import HrDashboard from "./pages/HrDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import CandidateDashboard from "./pages/CandidateDashboard";
 
+import AdminLayout from "./layouts/AdminLayout";
+
+import Dashboard from "./pages/admin/Dashboard";
+import Organizations from "./pages/admin/Organizations";
+import HrManagement from "./pages/admin/HrManagement";
+
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -99,13 +105,35 @@ function App() {
          ========================= */}
 
       <Route
-        path="/super-admin"
-        element={
-          <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
-            <SuperAdminDashboard />
-          </ProtectedRoute>
-        }
-      />
+  path="/admin"
+  element={
+    <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
+      <AdminLayout />
+    </ProtectedRoute>
+  }
+>
+
+  <Route
+    index
+    element={<Navigate to="dashboard" replace />}
+  />
+
+  <Route
+    path="dashboard"
+    element={<Dashboard />}
+  />
+
+  <Route
+    path="organizations"
+    element={<Organizations />}
+  />
+
+  <Route
+    path="hrs"
+    element={<HrManagement />}
+  />
+
+    </Route>
 
 
       {/* =========================
