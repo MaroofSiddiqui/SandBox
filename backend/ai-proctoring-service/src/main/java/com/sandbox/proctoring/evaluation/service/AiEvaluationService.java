@@ -3,6 +3,8 @@ package com.sandbox.proctoring.evaluation.service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sandbox.proctoring.evaluation.model.AiEvaluationResult;
 import com.sandbox.proctoring.evaluation.model.Question;
 import com.sandbox.proctoring.evaluation.model.TestCase;
@@ -12,6 +14,7 @@ import com.sandbox.proctoring.evaluation.exception.ResourceNotFoundException;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID; // Added for safe ID generation
 
 // Service class containing the business logic for AI evaluation
 @Service
@@ -26,8 +29,14 @@ public class AiEvaluationService {
     @Autowired
     private QuestionRepository questionRepository;
     
+    @Autowired
+    private GeminiService geminiService;
+    
     // Save a new evaluation result to the database
     public AiEvaluationResult saveEvaluation(AiEvaluationResult evaluation) {
+        if (evaluation.getId() == null || evaluation.getId().isEmpty()) {
+            evaluation.setId(UUID.randomUUID().toString());
+        }
         return evaluationRepository.save(evaluation);
     }
 
@@ -68,6 +77,7 @@ public class AiEvaluationService {
 
         // Create and populate the evaluation result object.
         AiEvaluationResult evaluationResult = new AiEvaluationResult();
+        evaluationResult.setId(UUID.randomUUID().toString()); // Safe ID assignment
         evaluationResult.setSourceCode(sourceCode);
         evaluationResult.setLanguageId(languageId);
         evaluationResult.setStdout(executionLogs.toString());
@@ -80,9 +90,10 @@ public class AiEvaluationService {
         return evaluationRepository.save(evaluationResult);
     }
 
-    // New Method: Fetch test cases from MongoDB using questionId and evaluate
+    // Main business logic to fetch test cases, execute code, call Gemini AI, and save results
     public AiEvaluationResult processAndSaveEvaluationForQuestion(String sourceCode, int languageId, String questionId) {
-        // 1. Database se question fetch karein, agar na mile toh exception throw karein
+        
+        // Step 1: Fetch question details from MongoDB, throw an exception if not found
         Question question = questionRepository.findById(questionId)
             .orElseThrow(() -> new ResourceNotFoundException("Question not found with id: " + questionId));
         
@@ -94,14 +105,13 @@ public class AiEvaluationService {
         int passedCount = 0;
         StringBuilder executionLogs = new StringBuilder();
 
-        // 2. Loop through the test cases
+        // Step 2: Loop through the test cases and execute the code via Judge0
         for (int i = 0; i < testCases.size(); i++) {
             TestCase tc = testCases.get(i);
             
-            // Call Judge0 service
             String judge0Response = judge0Service.submitCodeToJudge0(sourceCode, languageId);
             
-            // Evaluate pass/fail status
+            // Check if the execution result was accepted
             if (judge0Response != null && judge0Response.contains("\"description\":\"Accepted\"")) {
                 passedCount++;
                 executionLogs.append("Test Case ").append(i + 1).append(": PASSED\n");
@@ -110,15 +120,52 @@ public class AiEvaluationService {
             }
         }
 
-        // 3. Populate and save evaluation result
+        // Step 3: Call the Gemini API to get an AI-powered code review and feedback
+        String geminiRawResponse = geminiService.analyzeCodeWithGemini(
+            sourceCode, 
+            question.getDescription(), 
+            executionLogs.toString()
+        );
+
+        // Default fallback values
+        double aiScore = 0.0;
+        String constructiveFeedback = "No feedback generated.";
+        String bugsFound = "None";
+        String efficiencyComments = "N/A";
+
+        // Step 4: Parse Gemini's JSON response using Jackson ObjectMapper
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            
+            // Clean markdown code blocks if Gemini returns them (e.g., ```json ... ```)
+            String cleanedJson = geminiRawResponse.replaceAll("```json", "").replaceAll("```", "").trim();
+            
+            JsonNode rootNode = objectMapper.readTree(cleanedJson);
+            
+            aiScore = rootNode.path("codeQualityScore").asDouble(0.0);
+            constructiveFeedback = rootNode.path("constructiveFeedback").asText("No feedback provided.");
+            bugsFound = rootNode.path("bugsFound").asText("None");
+            efficiencyComments = rootNode.path("efficiencyComments").asText("N/A");
+
+        } catch (Exception e) {
+            // Fallback if JSON parsing fails
+            aiScore = 30.0; // Effort/logic partial marks
+            constructiveFeedback = "Raw AI Response: " + geminiRawResponse;
+        }
+
+        // Step 5: Populate evaluation result with parsed AI analysis
         AiEvaluationResult evaluationResult = new AiEvaluationResult();
+        evaluationResult.setId(UUID.randomUUID().toString()); // Safe ID assignment to prevent null error
         evaluationResult.setSourceCode(sourceCode);
         evaluationResult.setLanguageId(languageId);
         evaluationResult.setStdout(executionLogs.toString());
-        
-        double score = testCases.isEmpty() ? 0.0 : ((double) passedCount / testCases.size()) * 100;
-        evaluationResult.setScore(score);
+        evaluationResult.setScore(aiScore);                 // AI-evaluated score (marks)
+        evaluationResult.setCodeQualityScore(aiScore);
+        evaluationResult.setEfficiencyComments(efficiencyComments);
+        evaluationResult.setBugsFound(bugsFound);
+        evaluationResult.setConstructiveFeedback(constructiveFeedback);
 
+        // Step 6: Save and return to database
         return evaluationRepository.save(evaluationResult);
     }
 }
