@@ -1,0 +1,365 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Inter,sans-serif;
+}
+
+.admin-layout{
+    display:flex;
+    min-height:100vh;
+    background:#f4f7fb;
+}
+
+/* Sidebar */
+
+.admin-sidebar{
+    width:260px;
+    background:#0f172a;
+    color:white;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    padding:24px;
+}
+
+.sidebar-logo{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    font-size:22px;
+    font-weight:700;
+    margin-bottom:40px;
+}
+
+.sidebar-nav{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.sidebar-link{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    text-decoration:none;
+    color:#cbd5e1;
+    padding:14px 16px;
+    border-radius:10px;
+    transition:.25s;
+}
+
+.sidebar-link:hover{
+    background:#1e293b;
+    color:white;
+}
+
+.sidebar-link.active{
+    background:#2563eb;
+    color:white;
+}
+
+.logout-button{
+    margin-top:40px;
+    width:100%;
+    border:none;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    padding:14px;
+    border-radius:10px;
+    background:#dc2626;
+    color:white;
+    font-size:15px;
+    transition:.25s;
+}
+
+.logout-button:hover{
+    background:#b91c1c;
+}
+
+/* Right Side */
+
+.admin-content{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+}
+
+/* Topbar */
+
+.admin-topbar{
+    height:72px;
+    background:white;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:0 35px;
+    border-bottom:1px solid #e5e7eb;
+}
+
+.search-box{
+    width:340px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:#f3f4f6;
+    padding:10px 15px;
+    border-radius:10px;
+}
+
+.search-box input{
+    border:none;
+    outline:none;
+    background:none;
+    width:100%;
+    font-size:15px;
+}
+
+.admin-profile{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.admin-profile strong{
+    font-size:15px;
+}
+
+.admin-profile p{
+    font-size:13px;
+    color:#64748b;
+}
+
+/* Main */
+
+.admin-main{
+    flex:1;
+    padding:30px;
+}
+
+/* ===============================
+   Page Header
+================================= */
+
+.page-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:25px;
+}
+
+.page-header h1{
+    font-size:32px;
+    color:#111827;
+}
+
+/* ===============================
+   Buttons
+================================= */
+
+.primary-btn{
+    background:#2563eb;
+    color:white;
+    border:none;
+    padding:12px 20px;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:600;
+    transition:.25s;
+}
+
+.primary-btn:hover{
+    background:#1d4ed8;
+}
+
+/* ===============================
+   Search
+================================= */
+
+.search-container{
+    margin-bottom:20px;
+}
+
+.search-input{
+    width:350px;
+    padding:12px 15px;
+    border:1px solid #d1d5db;
+    border-radius:10px;
+    outline:none;
+    font-size:15px;
+}
+
+.search-input:focus{
+    border-color:#2563eb;
+}
+
+/* ===============================
+   Table
+================================= */
+
+.table-container{
+    background:white;
+    border-radius:12px;
+    overflow:hidden;
+    box-shadow:0 5px 15px rgba(0,0,0,.06);
+}
+
+.admin-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.admin-table th{
+    background:#f8fafc;
+    padding:16px;
+    text-align:left;
+    font-weight:700;
+}
+
+.admin-table td{
+    padding:16px;
+    border-top:1px solid #e5e7eb;
+}
+
+.empty-table{
+    text-align:center;
+    padding:40px;
+    color:#6b7280;
+}
+
+/* ===========================
+   Modal
+=========================== */
+
+.modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.45);
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    z-index:999;
+}
+
+.modal{
+    width:450px;
+    background:white;
+    border-radius:14px;
+    padding:30px;
+}
+
+.modal h2{
+    margin-bottom:25px;
+}
+
+.modal form{
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+}
+
+.modal input{
+    padding:12px;
+    border:1px solid #d1d5db;
+    border-radius:8px;
+    font-size:15px;
+}
+
+.modal input:focus{
+    outline:none;
+    border-color:#2563eb;
+}
+
+.modal-buttons{
+    display:flex;
+    justify-content:flex-end;
+    gap:15px;
+    margin-top:10px;
+}
+
+.cancel-btn{
+    border:none;
+    background:#e5e7eb;
+    padding:12px 20px;
+    border-radius:8px;
+    cursor:pointer;
+}
+
+.cancel-btn:hover{
+    background:#d1d5db;
+}
+
+.modal select{
+    padding:12px;
+    border:1px solid #d1d5db;
+    border-radius:8px;
+    font-size:15px;
+}
+
+.modal select:focus{
+    outline:none;
+    border-color:#2563eb;
+}
+
+.action-buttons{
+    display:flex;
+    gap:8px;
+    justify-content:center;
+    align-items:center;
+}
+
+.table-link{
+    border:none;
+    outline:none;
+    cursor:pointer;
+    padding:7px 16px;
+    border-radius:8px;
+    font-size:13px;
+    font-weight:600;
+    transition:0.25s ease;
+}
+
+/* Edit */
+
+.edit-btn{
+    background:#2563eb;
+    color:#fff;
+}
+
+.edit-btn:hover{
+    background:#1d4ed8;
+    transform:translateY(-2px);
+    box-shadow:0 6px 14px rgba(37,99,235,.25);
+}
+
+/* Activate */
+
+.activate-btn{
+    background:#16a34a;
+    color:#fff;
+}
+
+.activate-btn:hover{
+    background:#15803d;
+    transform:translateY(-2px);
+    box-shadow:0 6px 14px rgba(22,163,74,.25);
+}
+
+/* Deactivate */
+
+.deactivate-btn{
+    background:#dc2626;
+    color:#fff;
+}
+
+.deactivate-btn:hover{
+    background:#b91c1c;
+    transform:translateY(-2px);
+    box-shadow:0 6px 14px rgba(220,38,38,.25);
+}
+

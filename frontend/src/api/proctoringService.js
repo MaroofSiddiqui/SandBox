@@ -41,7 +41,7 @@ export const uploadViolationEvidence = async ({
     formData.append('timestamp', new Date().toISOString());
 
     // 3. Dispatch POST request to Spring Boot backend
-    const response = await axios.post(`${API_BASE_URL}/log-violation`, formData, {
+    const response = await axios.post(`${API_BASE_URL}/upload-evidence`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -53,5 +53,39 @@ export const uploadViolationEvidence = async ({
   } catch (error) {
     console.error('[Proctoring API]: Error uploading violation evidence:', error);
     throw error;
+  }
+};
+
+/**
+ * Logs a lightweight JSON violation report to the backend (No video files attached).
+ * Used for AI face detection events and copy/paste attempts.
+ *
+ * @param {Object} params - Report parameters.
+ * @param {string} params.violationType - Classification code of the violation.
+ * @param {string} [params.timestamp] - ISO timestamp of the breach event.
+ * @param {string} [params.candidateId="CANDIDATE_TEMP_ID"] - Unique identifier for the candidate.
+ * @param {string} [params.examId="EXAM_TEMP_ID"] - Unique identifier for the active assessment.
+ * @returns {Promise<Object>} Backend API response data.
+ */
+export const logViolationEvent = async ({
+  violationType,
+  timestamp = new Date().toISOString(),
+  candidateId = 'CANDIDATE_TEMP_ID',
+  examId = 'EXAM_TEMP_ID'
+}) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/log-violation`, {
+      violationType,
+      candidateId,
+      examId,
+      timestamp,
+    });
+
+    console.log('[Proctoring API]: JSON Violation report logged successfully:', response.data);
+    return response.data;
+
+  } catch (error) {
+    // Graceful warning log so local testing without backend server running won't crash the UI
+    console.warn('[Proctoring API]: Backend offline or unreachable for JSON violation report:', error.message);
   }
 };

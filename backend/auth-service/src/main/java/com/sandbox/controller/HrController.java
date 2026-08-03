@@ -1,10 +1,14 @@
 package com.sandbox.controller;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.sandbox.dto.CreateHrRequest;
+import com.sandbox.dto.HrStatusRequest;
+import com.sandbox.dto.UpdateHrRequest;
 import com.sandbox.dto.UserResponse;
 import com.sandbox.entity.User;
 import com.sandbox.service.HrService;
@@ -166,5 +170,185 @@ public class HrController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
+    }
+    
+    /*
+     * GET ALL HRS
+     *
+     * URL:
+     * GET /hrs
+     *
+     * Accessible only by SUPER_ADMIN.
+     *
+     * Returns safe UserResponse DTOs instead of
+     * exposing User entities.
+     */
+    @GetMapping
+    public ResponseEntity<List<UserResponse>> getAllHrs() {
+
+        List<User> hrs = hrService.getAllHrs();
+
+        List<UserResponse> response = hrs.stream()
+                .map(hr -> new UserResponse(
+                        hr.getId(),
+                        hr.getName(),
+                        hr.getEmail(),
+                        hr.getRole().getName(),
+                        hr.getOrganization() != null
+                                ? hr.getOrganization().getId()
+                                : null,
+                        hr.getStatus(),
+                        hr.getCreatedAt()
+                ))
+                .toList();
+
+        return ResponseEntity.ok(response);
+    }
+    
+    /*
+     * GET HR BY ID
+     *
+     * URL:
+     * GET /hrs/{id}
+     *
+     * Example:
+     * GET /hrs/2
+     *
+     * Accessible only by SUPER_ADMIN.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<UserResponse> getHrById(
+            @PathVariable Long id) {
+
+        User hr = hrService.getHrById(id);
+
+        UserResponse response = new UserResponse(
+                hr.getId(),
+                hr.getName(),
+                hr.getEmail(),
+                hr.getRole().getName(),
+                hr.getOrganization() != null
+                        ? hr.getOrganization().getId()
+                        : null,
+                hr.getStatus(),
+                hr.getCreatedAt()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+    
+    /*
+     * UPDATE HR
+     *
+     * URL:
+     * PUT /hrs/{id}
+     *
+     * Example:
+     *
+     * PUT /hrs/2
+     *
+     * {
+     *     "name": "Rahul Sharma Updated",
+     *     "email": "rahul.hr@acme.com",
+     *     "organizationId": 2
+     * }
+     *
+     * Only SUPER_ADMIN can update HR details.
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<UserResponse> updateHr(
+
+            @PathVariable Long id,
+
+            @Valid @RequestBody UpdateHrRequest request) {
+
+        /*
+         * Delegate update logic to the service.
+         */
+        User hr = hrService.updateHr(id, request);
+
+        /*
+         * Return only safe information.
+         */
+        UserResponse response = new UserResponse(
+
+                hr.getId(),
+
+                hr.getName(),
+
+                hr.getEmail(),
+
+                hr.getRole().getName(),
+
+                hr.getOrganization() != null
+                        ? hr.getOrganization().getId()
+                        : null,
+
+                hr.getStatus(),
+
+                hr.getCreatedAt()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+    
+    /*
+     * UPDATE HR STATUS
+     *
+     * URL:
+     * PATCH /hrs/{id}/status
+     *
+     * Example:
+     *
+     * PATCH /hrs/2/status
+     *
+     * Request:
+     *
+     * {
+     *     "status": "INACTIVE"
+     * }
+     *
+     * Only SUPER_ADMIN can access this endpoint.
+     */
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<UserResponse> updateHrStatus(
+
+            // HR ID whose status should be updated.
+            @PathVariable Long id,
+
+            /*
+             * Validate the incoming status.
+             *
+             * Allowed values:
+             * ACTIVE
+             * INACTIVE
+             */
+            @Valid @RequestBody HrStatusRequest request) {
+
+        /*
+         * Delegate status update to the service layer.
+         */
+        User hr = hrService.updateHrStatus(
+                id,
+                request.getStatus()
+        );
+
+        /*
+         * Convert the updated User entity into UserResponse.
+         */
+        UserResponse response = new UserResponse(
+                hr.getId(),
+                hr.getName(),
+                hr.getEmail(),
+                hr.getRole().getName(),
+                hr.getOrganization().getId(),
+                hr.getStatus(),
+                hr.getCreatedAt()
+        );
+
+        /*
+         * Return HTTP 200 OK with the updated HR details.
+         */
+        return ResponseEntity.ok(response);
     }
 }
