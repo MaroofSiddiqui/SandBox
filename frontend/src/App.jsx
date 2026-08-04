@@ -10,7 +10,7 @@ import ResetPassword from "./pages/ResetPassword";
 import VerifyEmail from "./pages/VerifyEmail";
 import NotFound from "./pages/NotFound";
 import AccessDenied from "./pages/AccessDenied";
-
+import CodeEvaluation from "./components/editor/CodeEvaluation";
 import HrDashboard from "./pages/HrDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import CandidateDashboard from "./pages/CandidateDashboard";
@@ -153,6 +153,14 @@ function App() {
       <Route
         path="*"
         element={<NotFound />}
+      />
+
+      {/* =========================
+          EVALUATION ROUTE (Testing for now)
+         ========================= */}
+      <Route
+        path="/code-evaluation"
+        element={<CodeEvaluation />}
       />
 
     </Routes>

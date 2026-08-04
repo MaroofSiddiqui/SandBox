@@ -3,16 +3,16 @@ package com.sandbox.proctoring.evaluation.model;
 public class TestCase {
     private String input;
     private String expectedOutput;
+    private boolean hidden;
 
-    // Constructors
     public TestCase() {}
 
-    public TestCase(String input, String expectedOutput) {
+    public TestCase(String input, String expectedOutput, boolean hidden) {
         this.input = input;
         this.expectedOutput = expectedOutput;
+        this.hidden = hidden;
     }
 
-    // Getters and Setters
     public String getInput() {
         return input;
     }
@@ -27,5 +27,13 @@ public class TestCase {
 
     public void setExpectedOutput(String expectedOutput) {
         this.expectedOutput = expectedOutput;
+    }
+
+    public boolean isHidden() {
+        return hidden;
+    }
+
+    public void setHidden(boolean hidden) {
+        this.hidden = hidden;
     }
 }
