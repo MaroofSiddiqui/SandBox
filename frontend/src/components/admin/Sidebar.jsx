@@ -5,6 +5,7 @@ import {
   Users,
   LogOut,
   ShieldCheck,
+  CreditCard,
 } from "lucide-react";
 
 function Sidebar() {
@@ -38,6 +39,11 @@ function Sidebar() {
           HR Management
         </NavLink>
       </nav>
+
+      <NavLink to="/admin/subscriptions" className="sidebar-link">
+        <CreditCard size={20} />
+        Subscriptions
+      </NavLink>
 
       <button className="logout-button" onClick={handleLogout}>
         <LogOut size={20} />

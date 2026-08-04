@@ -1,5 +1,6 @@
 package com.sandbox.config;
 
+import org.springframework.http.HttpMethod;
 import java.util.List;
 
 import org.springframework.context.annotation.Bean;
@@ -19,104 +20,97 @@ import com.sandbox.security.JwtAuthenticationFilter;
 @Configuration
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final JwtAuthenticationEntryPoint authenticationEntryPoint;
-    private final JwtAccessDeniedHandler accessDeniedHandler;
+	private final JwtAuthenticationFilter jwtAuthenticationFilter;
+	private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+	private final JwtAccessDeniedHandler accessDeniedHandler;
 
-    public SecurityConfig(
-            JwtAuthenticationFilter jwtAuthenticationFilter,
-            JwtAuthenticationEntryPoint authenticationEntryPoint,
-            JwtAccessDeniedHandler accessDeniedHandler) {
+	public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+			JwtAuthenticationEntryPoint authenticationEntryPoint, JwtAccessDeniedHandler accessDeniedHandler) {
 
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-        this.authenticationEntryPoint = authenticationEntryPoint;
-        this.accessDeniedHandler = accessDeniedHandler;
-    }
+		this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+		this.authenticationEntryPoint = authenticationEntryPoint;
+		this.accessDeniedHandler = accessDeniedHandler;
+	}
 
-    @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	@Bean
+	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
-        http
-            // Enable CORS using the configuration below
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+		http
+				// Enable CORS using the configuration below
+				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-            .csrf(csrf -> csrf.disable())
+				.csrf(csrf -> csrf.disable())
 
-            // JWT authentication is stateless
-            .sessionManagement(session ->
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            )
+				// JWT authentication is stateless
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-            // Custom 401 and 403 responses
-            .exceptionHandling(exception -> exception
-                .authenticationEntryPoint(authenticationEntryPoint)
-                .accessDeniedHandler(accessDeniedHandler)
-            )
+				// Custom 401 and 403 responses
+				.exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint)
+						.accessDeniedHandler(accessDeniedHandler))
 
-            .authorizeHttpRequests(auth -> auth
+				.authorizeHttpRequests(auth -> auth
 
-                // Public APIs
-            		.requestMatchers(
-            			    "/api/auth/login",
-            			    "/api/auth/register",
-            			    "/api/auth/password/**",
-            			    "/api/auth/email/**",
-            			    "/error"
-            			).permitAll()
+						// =========================
+						// PUBLIC APIs
+						// =========================
+						.requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/password/**",
+								"/api/auth/email/**", "/error")
+						.permitAll()
 
-                // Only SUPER_ADMIN
-                .requestMatchers(
-                    "/organizations/**",
-                    "/hrs/**"
-                ).hasRole("SUPER_ADMIN")
+						// =========================
+						// SUBSCRIPTION VIEWING
+						// HR + SUPER ADMIN
+						// =========================
+						.requestMatchers(HttpMethod.GET, "/admin/subscriptions", "/admin/subscriptions/**")
+						.hasAnyRole("HR", "SUPER_ADMIN")
 
-                // Only HR
-                .requestMatchers("/candidates/**").hasRole("HR")
+						// =========================
+						// SUBSCRIPTION MANAGEMENT
+						// SUPER ADMIN ONLY
+						// =========================
+						.requestMatchers("/admin/subscriptions/**").hasRole("SUPER_ADMIN")
 
-                // Everything else needs authentication
-                .anyRequest().authenticated()
-            )
+						// =========================
+						// SUPER ADMIN APIs
+						// =========================
+						.requestMatchers("/organizations/**", "/hrs/**").hasRole("SUPER_ADMIN")
 
-            // Validate JWT before Spring authorization
-            .addFilterBefore(
-                jwtAuthenticationFilter,
-                UsernamePasswordAuthenticationFilter.class
-            );
+						// =========================
+						// HR APIs
+						// =========================
+						.requestMatchers("/candidates/**").hasRole("HR")
 
-        return http.build();
-    }
+						// Everything else requires JWT
+						.anyRequest().authenticated())
 
-    @Bean
-    CorsConfigurationSource corsConfigurationSource() {
+				// Validate JWT before Spring authorization
+				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-        CorsConfiguration configuration = new CorsConfiguration();
+		return http.build();
+	}
 
-        // React development server
-        configuration.setAllowedOrigins(
-            List.of("http://localhost:5173")
-        );
+	@Bean
+	CorsConfigurationSource corsConfigurationSource() {
 
-        // HTTP methods frontend can use
-        configuration.setAllowedMethods(
-            List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-        );
+		CorsConfiguration configuration = new CorsConfiguration();
 
-        // Allow Authorization and Content-Type headers
-        configuration.setAllowedHeaders(
-            List.of("Authorization", "Content-Type")
-        );
+		// React development server
+		configuration.setAllowedOrigins(List.of("http://localhost:5173"));
 
-        // Allow browser to read Authorization header if needed
-        configuration.setExposedHeaders(
-            List.of("Authorization")
-        );
+		// HTTP methods frontend can use
+		configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
-        UrlBasedCorsConfigurationSource source =
-            new UrlBasedCorsConfigurationSource();
+		// Allow Authorization and Content-Type headers
+		configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
 
-        // Apply CORS configuration to every API
-        source.registerCorsConfiguration("/**", configuration);
+		// Allow browser to read Authorization header if needed
+		configuration.setExposedHeaders(List.of("Authorization"));
 
-        return source;
-    }
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+
+		// Apply CORS configuration to every API
+		source.registerCorsConfiguration("/**", configuration);
+
+		return source;
+	}
 }

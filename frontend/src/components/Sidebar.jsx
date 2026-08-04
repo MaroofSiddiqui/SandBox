@@ -1,7 +1,9 @@
 // Icons used in the sidebar
 import {
     LayoutDashboard,
+    Building2,
     Users,
+    ShieldCheck,
     Briefcase,
     CalendarCheck,
     ClipboardList,

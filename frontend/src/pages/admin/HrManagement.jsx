@@ -132,9 +132,7 @@ function HrManagement() {
 
         <div className="page-container">
 
-            <div className="page-header">
-
-                <h1>HR Management</h1>
+            <div className="page-header page-header-right">
 
                 <button
                     className="primary-btn"
@@ -164,7 +162,6 @@ function HrManagement() {
 
                         <tr>
 
-                            <th>ID</th>
                             <th>Name</th>
                             <th>Email</th>
                             <th>Organization</th>
@@ -200,8 +197,6 @@ function HrManagement() {
 
                                     <tr key={hr.id}>
 
-                                        <td>{hr.id}</td>
-
                                         <td>{hr.name}</td>
 
                                         <td>{hr.email}</td>
@@ -226,8 +221,8 @@ function HrManagement() {
 
                                                 <button
                                                     className={`table-link ${hr.status === "ACTIVE"
-                                                            ? "deactivate-btn"
-                                                            : "activate-btn"
+                                                        ? "deactivate-btn"
+                                                        : "activate-btn"
                                                         }`}
                                                     onClick={() => handleStatus(hr)}
                                                 >

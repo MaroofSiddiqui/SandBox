@@ -60,7 +60,7 @@ function Login() {
       const user = await login(email.trim(), password);
 
       if (user.role === "SUPER_ADMIN") {
-        navigate("/super-admin", { replace: true });
+        navigate("/admin", { replace: true });
       } else if (user.role === "HR") {
         navigate("/hr", { replace: true });
       } else if (user.role === "CANDIDATE") {
