@@ -1,41 +1,80 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useProctoring } from '../hooks/useProctoring';
 import { WarningModal } from '../components/proctoring/WarningModal';
+import { isMobileDevice } from '../utils/deviceCheck';
 
 /**
- * TestProctoringView Component
- *
- * Serves as the candidate-facing assessment view or sandbox page.
- * Renders the protected exam container, enforces fullscreen mode, presents a mandatory 
- * screen-share lockout overlay if compliance is lost, and displays a floating, 
- * clean candidate live webcam preview box.
- *
- * @component
- * @returns {JSX.Element} The assessment interface with proctoring guardrails.
+ * Candidate Proctoring View Component
+ * Pass real candidateId and examId props from your router/exam context!
  */
-export const TestProctoringView = () => {
-  const { warning, closeWarning, screenShareError, requestMediaStreams, webcamStream } = useProctoring();
+export const TestProctoringView = ({ 
+  candidateId = "CANDIDATE_101", 
+  examId = "EXAM_TEST_01",
+  agoraCredentials = null 
+}) => {
+  const { warning, closeWarning, webcamStream } = useProctoring(candidateId, examId, agoraCredentials);
   const webcamVideoRef = useRef(null);
+  
+  const [isMobile, setIsMobile] = useState(() => isMobileDevice());
 
-  /**
-   * Synchronizes active webcam MediaStream to the floating HTML5 video element.
-   */
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(isMobileDevice());
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   useEffect(() => {
     if (webcamVideoRef.current && webcamStream) {
       webcamVideoRef.current.srcObject = webcamStream;
     }
   }, [webcamStream]);
 
-  /**
-   * Requests the browser to enter Fullscreen mode.
-   */
   const handleEnableFullscreen = () => {
     if (document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().catch((err) => {
-        console.error("[UI]: Failed to enter fullscreen mode:", err);
+        console.error("Failed to enter fullscreen mode", err);
       });
     }
   };
+
+  if (isMobile) {
+    return (
+      <div style={{
+        height: '100vh',
+        width: '100vw',
+        backgroundColor: '#0f172a',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#ffffff',
+        fontFamily: 'system-ui, sans-serif',
+        padding: '1.5rem',
+        textAlign: 'center',
+        boxSizing: 'border-box'
+      }}>
+        <div style={{
+          backgroundColor: '#1e293b',
+          padding: '2.5rem',
+          borderRadius: '16px',
+          maxWidth: '480px',
+          width: '100%',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+          border: '1px solid #334155'
+        }}>
+          <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>💻</div>
+          <h2 style={{ color: '#f8fafc', marginBottom: '0.75rem', fontSize: '1.5rem' }}>
+            Desktop Required
+          </h2>
+          <p style={{ color: '#94a3b8', lineHeight: '1.6', fontSize: '1rem', margin: 0 }}>
+            Online assessments cannot be taken on mobile phones or tablets. Please open this link on a desktop computer using Chrome or Edge.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ 
@@ -48,82 +87,6 @@ export const TestProctoringView = () => {
     }}>
       <div style={{ maxWidth: '850px', margin: '0 auto' }}>
         
-        {/* MANDATORY EXAM LOCKOUT OVERLAY (Active when screen share is invalid or stopped) */}
-        {screenShareError && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            backgroundColor: 'rgba(241, 245, 249, 0.95)',
-            backdropFilter: 'blur(6px)',
-            zIndex: 999999, // Renders above all exam elements to block interaction
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            color: '#0f172a',
-            textAlign: 'center',
-            padding: '2rem'
-          }}>
-            <div style={{ 
-              backgroundColor: '#ffffff', 
-              padding: '2.5rem', 
-              borderRadius: '16px', 
-              maxWidth: '540px', 
-              width: '90%',
-              border: '1px solid #cbd5e1',
-              borderTop: '6px solid #0284c7',
-              boxShadow: '0 25px 50px -12px rgba(14, 165, 233, 0.18)'
-            }}>
-              <div style={{
-                backgroundColor: '#e0f2fe',
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 1.25rem auto',
-                fontSize: '2rem'
-              }}>
-                🔒
-              </div>
-
-              <h2 style={{ color: '#0369a1', marginBottom: '1rem', fontSize: '1.75rem', fontWeight: '700' }}>
-                Assessment Paused
-              </h2>
-              
-              <p style={{ color: '#334155', marginBottom: '1.75rem', fontSize: '1.05rem', lineHeight: '1.6' }}>
-                {screenShareError === 'ENTIRE_SCREEN_REQUIRED' && 'You selected a single tab or window. To proceed with the assessment, you MUST select "Entire Screen".'}
-                {screenShareError === 'SCREEN_SHARE_STOPPED' && 'Screen sharing was interrupted. Your assessment is locked until screen sharing is restored.'}
-                {screenShareError === 'SCREEN_SHARE_DENIED' && 'Screen sharing permission was denied. Sharing your entire screen is mandatory.'}
-              </p>
-
-              <button
-                onClick={requestMediaStreams}
-                style={{
-                  backgroundColor: '#0284c7',
-                  color: '#ffffff',
-                  padding: '0.875rem 1.75rem',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontWeight: '600',
-                  fontSize: '1.05rem',
-                  cursor: 'pointer',
-                  width: '100%',
-                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
-                  transition: 'background-color 0.2s ease'
-                }}
-              >
-                Share Entire Screen to Resume
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Header Header Container */}
         <header style={{ 
           backgroundColor: '#ffffff', 
           padding: '1.5rem 2rem', 
@@ -134,11 +97,10 @@ export const TestProctoringView = () => {
         }}>
           <h1 style={{ color: '#1e3a8a', fontSize: '1.75rem', margin: '0 0 0.5rem 0' }}>Proctoring Engine Test Bed</h1>
           <p style={{ color: '#64748b', fontSize: '0.975rem', margin: 0 }}>
-            Module 6: Security Verification & Client Guardrails
+            Active Student ID: <strong>{candidateId}</strong> | Exam Session: <strong>{examId}</strong>
           </p>
         </header>
 
-        {/* Actions Controls */}
         <section style={{ marginBottom: '1.5rem' }}>
           <button
             onClick={handleEnableFullscreen}
@@ -158,7 +120,6 @@ export const TestProctoringView = () => {
           </button>
         </section>
 
-        {/* Main Exam Card Content Placeholder */}
         <section style={{ 
           padding: '2rem', 
           backgroundColor: '#ffffff', 
@@ -168,11 +129,10 @@ export const TestProctoringView = () => {
         }}>
           <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '1.25rem' }}>Protected Assessment Area</h3>
           <p style={{ color: '#475569', lineHeight: '1.6' }}>
-            All screen activity and webcam metrics are actively monitored. Look at the bottom-right corner to see your live camera feed!
+            Webcam and browser focus are actively monitored. Exiting fullscreen or switching tabs will be logged as policy breaches.
           </p>
         </section>
 
-        {/* FLOATING WEBCAM SELF-VIEW WINDOW */}
         {webcamStream && (
           <div style={{
             position: 'fixed',
@@ -182,24 +142,24 @@ export const TestProctoringView = () => {
             height: '135px',
             borderRadius: '12px',
             overflow: 'hidden',
-            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.05)',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15)',
             border: '2px solid #2563eb',
             backgroundColor: '#000000',
             zIndex: 9000,
-            pointerEvents: 'none' // Prevents browser hover popups, translation, and PiP icons
+            pointerEvents: 'none'
           }}>
             <video
               ref={webcamVideoRef}
               autoPlay
               playsInline
               muted
-              disablePictureInPicture // Disables Chromium native Picture-in-Picture widget
-              controlsList="nodownload noplaybackrate pictureinpicture" // Suppresses native media controls
+              disablePictureInPicture
+              controlsList="nodownload noplaybackrate pictureinpicture"
               style={{
                 width: '100%',
                 height: '100%',
                 objectFit: 'cover',
-                transform: 'scaleX(-1)', // Horizontal mirror effect for natural feedback
+                transform: 'scaleX(-1)',
                 pointerEvents: 'none'
               }}
             />
@@ -221,7 +181,6 @@ export const TestProctoringView = () => {
           </div>
         )}
 
-        {/* Generic Violation Alert Modal */}
         <WarningModal
           isOpen={warning.isOpen}
           warningText={warning.text}
@@ -231,3 +190,5 @@ export const TestProctoringView = () => {
     </div>
   );
 };
+
+export default TestProctoringView;

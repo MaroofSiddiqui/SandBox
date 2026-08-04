@@ -4,7 +4,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.sandbox.dto.CreateHrRequest;
-import com.sandbox.dto.UpdateHrRequest;
 import com.sandbox.entity.Organization;
 import com.sandbox.entity.Role;
 import com.sandbox.entity.User;
@@ -12,7 +11,6 @@ import com.sandbox.exception.ResourceNotFoundException;
 import com.sandbox.repository.OrganizationRepository;
 import com.sandbox.repository.RoleRepository;
 import com.sandbox.repository.UserRepository;
-import java.util.List;
 
 /*
  * HR SERVICE
@@ -351,168 +349,4 @@ public class HrService {
          */
         return userRepository.save(hr);
     }
-    
-    /*
-     * GET ALL HRS
-     *
-     * Returns all users having the HR role.
-     *
-     * SUPER_ADMIN uses this to view HR accounts
-     * across all organizations.
-     */
-    public List<User> getAllHrs() {
-
-        /*
-         * We already have:
-         *
-         * findByOrganizationIdAndRoleName(...)
-         *
-         * but that requires an organization ID.
-         *
-         * Since SUPER_ADMIN needs HRs across ALL organizations,
-         * we need a repository method that filters only by role.
-         */
-        return userRepository.findByRoleName("HR");
-    }
-    
-    /*
-     * GET HR BY ID
-     *
-     * Finds a specific user by ID and ensures
-     * that the requested user actually has the HR role.
-     *
-     * Example:
-     * GET /hrs/2
-     */
-    public User getHrById(Long id) {
-
-        User hr = userRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "HR not found"
-                        )
-                );
-
-        /*
-         * An existing user is not necessarily an HR.
-         *
-         * For example, ID 4 might belong to a CANDIDATE.
-         * We should not return that account through /hrs/{id}.
-         */
-        if (!"HR".equals(hr.getRole().getName())) {
-            throw new ResourceNotFoundException(
-                    "HR not found"
-            );
-        }
-
-        return hr;
-    }
-    
-    /*
-     * UPDATE HR
-     *
-     * Updates an existing HR account.
-     *
-     * SUPER_ADMIN can modify:
-     * - Name
-     * - Email
-     * - Organization
-     *
-     * Password is NOT updated here.
-     */
-    public User updateHr(
-            Long id,
-            UpdateHrRequest request) {
-
-        /*
-         * STEP 1:
-         * Find the HR.
-         */
-        User hr = getHrById(id);
-
-        /*
-         * STEP 2:
-         * Normalize the email.
-         */
-        String email = request.getEmail()
-                .trim()
-                .toLowerCase();
-
-        /*
-         * STEP 3:
-         * Check duplicate email.
-         *
-         * Allow the HR to keep their own email.
-         */
-        userRepository.findByEmail(email)
-                .filter(existing -> !existing.getId().equals(id))
-                .ifPresent(existing -> {
-                    throw new IllegalArgumentException(
-                            "Email already exists"
-                    );
-                });
-
-        /*
-         * STEP 4:
-         * Find the selected organization.
-         */
-        Organization organization =
-                organizationRepository.findById(
-                        request.getOrganizationId()
-                )
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Organization not found"
-                        )
-                );
-
-        /*
-         * STEP 5:
-         * Update fields.
-         */
-        hr.setName(request.getName().trim());
-        hr.setEmail(email);
-        hr.setOrganization(organization);
-
-        /*
-         * STEP 6:
-         * Save changes.
-         */
-        return userRepository.save(hr);
-    }
-    
-    /*
-     * UPDATE HR STATUS
-     *
-     * Activates or deactivates an HR account.
-     *
-     * Valid status values:
-     * - ACTIVE
-     * - INACTIVE
-     */
-    public User updateHrStatus(Long id, String status) {
-
-        /*
-         * Find the HR by ID.
-         *
-         * Also ensure that the user actually has the HR role.
-         */
-        User hr = userRepository
-                .findById(id)
-                .filter(user -> "HR".equals(user.getRole().getName()))
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("HR not found")
-                );
-
-        /*
-         * Update the status.
-         */
-        hr.setStatus(status);
-
-        /*
-         * Save the updated HR.
-         */
-        return userRepository.save(hr);
-    }
-    
 }

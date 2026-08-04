@@ -1,6 +1,7 @@
 package com.sandbox.proctoring.violation;
 
 import com.sandbox.proctoring.violation.dto.ViolationLogRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -20,7 +21,31 @@ public class ProctoringController {
     @Autowired
     private ProctoringService proctoringService;
 
-    // Route for fast text logs using validated DTO
+    // checks user agent to reject mobile phone exam access on backend
+    @GetMapping("/validate-device")
+    public ResponseEntity<?> validateDevice(HttpServletRequest request) {
+        String userAgent = request.getHeader("User-Agent");
+
+        if (userAgent != null && isMobileUserAgent(userAgent)) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("allowed", false);
+            response.put("message", "Exams can only be taken on desktop computers.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("allowed", true);
+        return ResponseEntity.ok(response);
+    }
+
+    // helper to check if header contains mobile keywords
+    private boolean isMobileUserAgent(String userAgent) {
+        String ua = userAgent.toLowerCase();
+        return ua.contains("android") || ua.contains("iphone") || ua.contains("ipad") 
+            || ua.contains("ipod") || ua.contains("blackberry") || ua.contains("mobile");
+    }
+
+    // route for fast text logs using validated DTO
     @PostMapping("/log-violation")
     public ResponseEntity<ViolationRecord> logViolation(@Valid @RequestBody ViolationLogRequest request) {
         System.out.println(">>> LOG VIOLATION RECEIVED: " + request.getViolationType());
@@ -28,7 +53,7 @@ public class ProctoringController {
         return ResponseEntity.ok(savedRecord);
     }
 
-    // Route for uploading video evidence files with guardrail check
+    // route for uploading video evidence files with guardrail check
     @PostMapping("/upload-evidence")
     public ResponseEntity<?> uploadEvidence(
             @RequestParam(value = "webcamVideo", required = false) MultipartFile webcamVideo,
@@ -54,7 +79,7 @@ public class ProctoringController {
         }
     }
 
-    // Local exception handler for validation errors ONLY on this controller
+    // exception handler for validation errors on this controller
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();

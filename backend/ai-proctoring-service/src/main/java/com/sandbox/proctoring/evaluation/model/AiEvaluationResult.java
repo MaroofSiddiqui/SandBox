@@ -14,7 +14,7 @@ public class AiEvaluationResult {
     private String submissionId;
     private double score;
     private String feedback;
-    private LocalDateTime evaluatedAt = LocalDateTime.now();
+    private LocalDateTime evaluatedAt;
     private String sourceCode;
     private int languageId;
     private String stdout;

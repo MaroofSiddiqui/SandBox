@@ -29,9 +29,6 @@ public class AiEvaluationService {
     @Autowired private GeminiService geminiService;
 
     public AiEvaluationResult saveEvaluation(AiEvaluationResult evaluation) {
-        if (evaluation.getId() == null || evaluation.getId().isEmpty()) {
-            evaluation.setId(UUID.randomUUID().toString());
-        }
         return evaluationRepository.save(evaluation);
     }
 
