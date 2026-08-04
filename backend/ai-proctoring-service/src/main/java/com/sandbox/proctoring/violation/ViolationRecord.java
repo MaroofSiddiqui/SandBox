@@ -26,6 +26,9 @@ public class ViolationRecord {
     // creation time tag
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    // IST readable timestamp string for clear local time debugging
+    private String createdAtIST;
+
     // empty constructor for spring
     public ViolationRecord() {}
 
@@ -64,4 +67,7 @@ public class ViolationRecord {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public String getCreatedAtIST() { return createdAtIST; }
+    public void setCreatedAtIST(String createdAtIST) { this.createdAtIST = createdAtIST; }
 }

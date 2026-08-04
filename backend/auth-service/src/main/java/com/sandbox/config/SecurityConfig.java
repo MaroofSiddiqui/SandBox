@@ -56,13 +56,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
 
                 // Public APIs
-            		.requestMatchers(
-            			    "/api/auth/login",
-            			    "/api/auth/register",
-            			    "/api/auth/password/**",
-            			    "/api/auth/email/**",
-            			    "/error"
-            			).permitAll()
+                .requestMatchers("/auth/login", "/error").permitAll()
 
                 // Only SUPER_ADMIN
                 .requestMatchers(

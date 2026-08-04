@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "agora-rtc-react": "^2.5.1",
+    "agora-rtc-sdk-ng": "^4.24.7"
+  }
+}
