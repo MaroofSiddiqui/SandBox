@@ -7,6 +7,7 @@ import java.util.List;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.razorpay.Order;
 import com.razorpay.RazorpayClient;
@@ -14,8 +15,10 @@ import com.razorpay.Utils;
 import com.sandbox.dto.CreatePaymentOrderRequest;
 import com.sandbox.dto.PaymentOrderResponse;
 import com.sandbox.dto.PaymentVerificationRequest;
+import com.sandbox.entity.Organization;
 import com.sandbox.entity.Payment;
 import com.sandbox.entity.Subscription;
+import com.sandbox.repository.OrganizationRepository;
 import com.sandbox.repository.PaymentRepository;
 import com.sandbox.repository.SubscriptionRepository;
 import com.sandbox.service.PaymentService;
@@ -36,8 +39,10 @@ import lombok.RequiredArgsConstructor;
  * 3. Store payment records in the database.
  * 4. Verify Razorpay payment signatures.
  * 5. Prevent duplicate payment processing.
- * 6. Retrieve payment history.
- * 7. Provide payment data for Admin monitoring.
+ * 6. Activate organization subscriptions after payment.
+ * 7. Calculate subscription start and expiry dates.
+ * 8. Retrieve payment history.
+ * 9. Provide payment data for Admin monitoring.
  */
 @Service
 @RequiredArgsConstructor
@@ -53,15 +58,20 @@ public class PaymentServiceImpl implements PaymentService {
      */
     private final SubscriptionRepository subscriptionRepository;
 
+    /*
+     * Repository used to retrieve and update organizations.
+     *
+     * After successful payment verification,
+     * the purchased subscription is assigned
+     * to the corresponding organization.
+     */
+    private final OrganizationRepository organizationRepository;
+
 
     /*
      * Razorpay Key ID.
      *
-     * Loaded from:
-     *
-     * application.properties
-     *
-     * razorpay.key.id=${RAZORPAY_KEY_ID:}
+     * Loaded from application.properties.
      */
     @Value("${razorpay.key.id}")
     private String razorpayKeyId;
@@ -83,7 +93,11 @@ public class PaymentServiceImpl implements PaymentService {
      *
      * Flow:
      *
+     * organizationId
+     *      +
      * subscriptionId
+     *      ↓
+     * Validate organization
      *      ↓
      * Find subscription
      *      ↓
@@ -107,18 +121,23 @@ public class PaymentServiceImpl implements PaymentService {
          * Basic request validation.
          */
         if (request == null) {
+
             throw new IllegalArgumentException(
                     "Payment request cannot be empty"
             );
         }
 
+
         if (request.getOrganizationId() == null) {
+
             throw new IllegalArgumentException(
                     "Organization ID is required"
             );
         }
 
+
         if (request.getSubscriptionId() == null) {
+
             throw new IllegalArgumentException(
                     "Subscription ID is required"
             );
@@ -126,27 +145,43 @@ public class PaymentServiceImpl implements PaymentService {
 
 
         /*
-         * Find the subscription selected by the
-         * organization.
+         * Make sure the organization actually exists
+         * before creating an external Razorpay order.
          *
-         * findById() is automatically available
-         * because SubscriptionRepository extends
-         * JpaRepository.
+         * This prevents unnecessary Razorpay orders
+         * for invalid organization IDs.
          */
-        Subscription subscription = subscriptionRepository
-                .findById(request.getSubscriptionId())
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Subscription plan not found"
-                        )
-                );
+        if (!organizationRepository.existsById(
+                request.getOrganizationId())) {
+
+            throw new IllegalArgumentException(
+                    "Organization not found"
+            );
+        }
 
 
         /*
-         * An organization must not be able to
-         * purchase an inactive subscription.
+         * Find the subscription selected by
+         * the organization.
          */
-        if (!"ACTIVE".equalsIgnoreCase(subscription.getStatus())) {
+        Subscription subscription =
+                subscriptionRepository
+                        .findById(
+                                request.getSubscriptionId()
+                        )
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "Subscription plan not found"
+                                )
+                        );
+
+
+        /*
+         * Organizations cannot purchase an
+         * inactive subscription.
+         */
+        if (!"ACTIVE".equalsIgnoreCase(
+                subscription.getStatus())) {
 
             throw new IllegalStateException(
                     "Subscription plan is currently inactive"
@@ -155,10 +190,11 @@ public class PaymentServiceImpl implements PaymentService {
 
 
         /*
-         * Validate the subscription price.
+         * Validate subscription price.
          */
         if (subscription.getPrice() == null ||
-                subscription.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+                subscription.getPrice()
+                        .compareTo(BigDecimal.ZERO) <= 0) {
 
             throw new IllegalStateException(
                     "Subscription price is invalid"
@@ -170,7 +206,7 @@ public class PaymentServiceImpl implements PaymentService {
 
             /*
              * Create Razorpay client using credentials
-             * stored in environment variables.
+             * stored securely on the backend.
              */
             RazorpayClient razorpayClient =
                     new RazorpayClient(
@@ -180,33 +216,33 @@ public class PaymentServiceImpl implements PaymentService {
 
 
             /*
-             * Razorpay expects the amount in the
-             * smallest currency unit.
+             * Razorpay expects INR amounts in paise.
              *
-             * For INR:
-             *
-             * ₹1     = 100 paise
-             * ₹999   = 99900 paise
-             * ₹2999  = 299900 paise
-             *
-             * We use BigDecimal instead of double
-             * to avoid floating-point errors.
+             * ₹1    = 100 paise
+             * ₹999  = 99900 paise
+             * ₹2999 = 299900 paise
              */
-            long amountInPaise = subscription
-                    .getPrice()
-                    .multiply(BigDecimal.valueOf(100))
-                    .longValueExact();
+            long amountInPaise =
+                    subscription
+                            .getPrice()
+                            .multiply(
+                                    BigDecimal.valueOf(100)
+                            )
+                            .longValueExact();
 
 
             /*
              * Prepare Razorpay order request.
              */
-            JSONObject orderRequest = new JSONObject();
+            JSONObject orderRequest =
+                    new JSONObject();
+
 
             orderRequest.put(
                     "amount",
                     amountInPaise
             );
+
 
             orderRequest.put(
                     "currency",
@@ -217,8 +253,6 @@ public class PaymentServiceImpl implements PaymentService {
             /*
              * Receipt provides our own reference
              * for the Razorpay order.
-             *
-             * nanoTime helps make it unique.
              */
             orderRequest.put(
                     "receipt",
@@ -227,11 +261,12 @@ public class PaymentServiceImpl implements PaymentService {
 
 
             /*
-             * Create the actual order using
-             * Razorpay API.
+             * Create the actual Razorpay order.
              */
             Order razorpayOrder =
-                    razorpayClient.orders.create(orderRequest);
+                    razorpayClient.orders.create(
+                            orderRequest
+                    );
 
 
             /*
@@ -242,29 +277,29 @@ public class PaymentServiceImpl implements PaymentService {
 
 
             /*
-             * Create our own local payment record.
+             * Create local payment record.
              *
-             * Notice:
-             *
-             * Amount comes from Subscription entity,
-             * NOT from the frontend.
+             * IMPORTANT:
+             * The amount comes from the database
+             * subscription and not from the frontend.
              */
-            Payment payment = Payment.builder()
-                    .organizationId(
-                            request.getOrganizationId()
-                    )
-                    .subscriptionId(
-                            subscription.getId()
-                    )
-                    .amount(
-                            subscription.getPrice()
-                    )
-                    .currency("INR")
-                    .razorpayOrderId(
-                            razorpayOrderId
-                    )
-                    .status("CREATED")
-                    .build();
+            Payment payment =
+                    Payment.builder()
+                            .organizationId(
+                                    request.getOrganizationId()
+                            )
+                            .subscriptionId(
+                                    subscription.getId()
+                            )
+                            .amount(
+                                    subscription.getPrice()
+                            )
+                            .currency("INR")
+                            .razorpayOrderId(
+                                    razorpayOrderId
+                            )
+                            .status("CREATED")
+                            .build();
 
 
             /*
@@ -275,12 +310,13 @@ public class PaymentServiceImpl implements PaymentService {
 
 
             /*
-             * Return only the information required
-             * by Razorpay Checkout on the frontend.
+             * Return information required by
+             * Razorpay Checkout.
              *
              * NEVER return razorpayKeySecret.
              */
-            return PaymentOrderResponse.builder()
+            return PaymentOrderResponse
+                    .builder()
                     .paymentId(
                             savedPayment.getId()
                     )
@@ -323,12 +359,32 @@ public class PaymentServiceImpl implements PaymentService {
      * razorpay_payment_id
      * razorpay_signature
      *
-     * We verify the signature on the backend.
+     * Flow:
      *
-     * Only after successful verification do we
-     * mark the payment as SUCCESS.
+     * Receive Razorpay response
+     *          ↓
+     * Find local payment
+     *          ↓
+     * Verify signature
+     *          ↓
+     * Mark payment SUCCESS
+     *          ↓
+     * Find organization
+     *          ↓
+     * Find purchased subscription
+     *          ↓
+     * Assign subscription
+     *          ↓
+     * Calculate expiry
+     *          ↓
+     * Save everything
+     *
+     * @Transactional ensures the successful payment
+     * update and organization subscription activation
+     * are processed as one database transaction.
      */
     @Override
+    @Transactional
     public Payment verifyPayment(
             PaymentVerificationRequest request) {
 
@@ -336,10 +392,12 @@ public class PaymentServiceImpl implements PaymentService {
          * Validate request.
          */
         if (request == null) {
+
             throw new IllegalArgumentException(
                     "Payment verification request cannot be empty"
             );
         }
+
 
         if (request.getRazorpayOrderId() == null ||
                 request.getRazorpayOrderId().isBlank()) {
@@ -349,6 +407,7 @@ public class PaymentServiceImpl implements PaymentService {
             );
         }
 
+
         if (request.getRazorpayPaymentId() == null ||
                 request.getRazorpayPaymentId().isBlank()) {
 
@@ -356,6 +415,7 @@ public class PaymentServiceImpl implements PaymentService {
                     "Razorpay payment ID is required"
             );
         }
+
 
         if (request.getRazorpaySignature() == null ||
                 request.getRazorpaySignature().isBlank()) {
@@ -367,35 +427,41 @@ public class PaymentServiceImpl implements PaymentService {
 
 
         /*
-         * Find our payment using the Razorpay
-         * order ID.
+         * Find our local payment using
+         * Razorpay order ID.
          */
-        Payment payment = paymentRepository
-                .findByRazorpayOrderId(
-                        request.getRazorpayOrderId()
-                )
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Payment order not found"
+        Payment payment =
+                paymentRepository
+                        .findByRazorpayOrderId(
+                                request.getRazorpayOrderId()
                         )
-                );
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "Payment order not found"
+                                )
+                        );
 
 
         /*
-         * If this order was already successfully
-         * processed, don't process it again.
+         * IDEMPOTENCY CHECK
+         *
+         * If the exact same successful payment
+         * verification reaches us again, simply
+         * return the existing payment.
+         *
+         * This prevents duplicate processing.
          */
-        if ("SUCCESS".equalsIgnoreCase(payment.getStatus())) {
+        if ("SUCCESS".equalsIgnoreCase(
+                payment.getStatus())) {
 
-            /*
-             * Same payment can safely receive the
-             * existing result.
-             */
             if (request.getRazorpayPaymentId()
-                    .equals(payment.getRazorpayPaymentId())) {
+                    .equals(
+                            payment.getRazorpayPaymentId()
+                    )) {
 
                 return payment;
             }
+
 
             throw new IllegalStateException(
                     "Payment order has already been processed"
@@ -404,11 +470,14 @@ public class PaymentServiceImpl implements PaymentService {
 
 
         /*
-         * Prevent one Razorpay payment ID from
-         * being attached to multiple local records.
+         * Prevent the same Razorpay payment ID
+         * from being attached to another local
+         * payment record.
          */
-        if (paymentRepository.existsByRazorpayPaymentId(
-                request.getRazorpayPaymentId())) {
+        if (paymentRepository
+                .existsByRazorpayPaymentId(
+                        request.getRazorpayPaymentId()
+                )) {
 
             throw new IllegalStateException(
                     "Razorpay payment has already been processed"
@@ -419,21 +488,24 @@ public class PaymentServiceImpl implements PaymentService {
         try {
 
             /*
-             * Razorpay requires these exact property
-             * names for signature verification.
+             * Razorpay requires these exact
+             * property names.
              */
             JSONObject verificationAttributes =
                     new JSONObject();
+
 
             verificationAttributes.put(
                     "razorpay_order_id",
                     request.getRazorpayOrderId()
             );
 
+
             verificationAttributes.put(
                     "razorpay_payment_id",
                     request.getRazorpayPaymentId()
             );
+
 
             verificationAttributes.put(
                     "razorpay_signature",
@@ -442,10 +514,8 @@ public class PaymentServiceImpl implements PaymentService {
 
 
             /*
-             * Verify signature using Razorpay SDK.
-             *
-             * Internally Razorpay verifies the
-             * signature using our secret key.
+             * Verify payment signature using
+             * Razorpay SDK and our secret key.
              */
             boolean signatureValid =
                     Utils.verifyPaymentSignature(
@@ -455,13 +525,14 @@ public class PaymentServiceImpl implements PaymentService {
 
 
             /*
-             * Reject forged/invalid payment data.
+             * Reject forged or invalid payment data.
              */
             if (!signatureValid) {
 
                 payment.setStatus("FAILED");
 
                 paymentRepository.save(payment);
+
 
                 throw new IllegalArgumentException(
                         "Payment signature verification failed"
@@ -470,38 +541,138 @@ public class PaymentServiceImpl implements PaymentService {
 
 
             /*
-             * Signature is valid.
+             * Use the same timestamp for:
              *
-             * Store Razorpay payment ID and mark
-             * transaction as SUCCESS.
+             * payment paidAt
+             * subscription start date
+             *
+             * This keeps our records consistent.
+             */
+            LocalDateTime now =
+                    LocalDateTime.now();
+
+
+            /*
+             * Payment has been successfully
+             * cryptographically verified.
              */
             payment.setRazorpayPaymentId(
                     request.getRazorpayPaymentId()
             );
 
+
             payment.setStatus("SUCCESS");
 
-            payment.setPaidAt(
-                    LocalDateTime.now()
+
+            payment.setPaidAt(now);
+
+
+            /*
+             * Find the organization that made
+             * this payment.
+             */
+            Organization organization =
+                    organizationRepository
+                            .findById(
+                                    payment.getOrganizationId()
+                            )
+                            .orElseThrow(() ->
+                                    new IllegalStateException(
+                                            "Organization associated with payment not found"
+                                    )
+                            );
+
+
+            /*
+             * Find the subscription purchased
+             * through this payment.
+             */
+            Subscription subscription =
+                    subscriptionRepository
+                            .findById(
+                                    payment.getSubscriptionId()
+                            )
+                            .orElseThrow(() ->
+                                    new IllegalStateException(
+                                            "Subscription associated with payment not found"
+                                    )
+                            );
+
+
+            /*
+             * Assign purchased subscription
+             * to the organization.
+             */
+            organization.setSubscription(
+                    subscription
             );
 
 
             /*
-             * Persist verified payment.
+             * Subscription becomes active from
+             * the successful payment time.
              */
-            return paymentRepository.save(payment);
+            organization.setSubscriptionStartAt(
+                    now
+            );
+
+
+            /*
+             * Calculate subscription expiry.
+             *
+             * Example:
+             *
+             * Basic duration = 3 months
+             *
+             * Start:
+             * 05 Aug 2026
+             *
+             * Expiry:
+             * 05 Nov 2026
+             */
+            organization.setSubscriptionExpiresAt(
+                    now.plusMonths(
+                            subscription.getDurationMonths()
+                    )
+            );
+
+
+            /*
+             * Save updated organization.
+             */
+            organizationRepository.save(
+                    organization
+            );
+
+
+            /*
+             * Save verified payment.
+             *
+             * Because this method is transactional,
+             * payment and organization changes belong
+             * to the same database transaction.
+             */
+            return paymentRepository.save(
+                    payment
+            );
 
 
         } catch (IllegalArgumentException |
                  IllegalStateException exception) {
 
             /*
-             * Preserve our own validation errors.
+             * Preserve our own business and
+             * validation exceptions.
              */
             throw exception;
 
+
         } catch (Exception exception) {
 
+            /*
+             * Convert unexpected Razorpay/internal
+             * errors into an application exception.
+             */
             throw new RuntimeException(
                     "Unable to verify Razorpay payment",
                     exception
@@ -513,8 +684,7 @@ public class PaymentServiceImpl implements PaymentService {
     /*
      * GET ALL PAYMENTS
      *
-     * Used by the Admin Payment Monitoring
-     * Dashboard.
+     * Used by Admin Payment Monitoring Dashboard.
      */
     @Override
     public List<Payment> getAllPayments() {
@@ -527,8 +697,7 @@ public class PaymentServiceImpl implements PaymentService {
      * GET ORGANIZATION PAYMENT HISTORY
      *
      * Newest payments are returned first because
-     * that ordering is already defined in the
-     * repository method.
+     * that ordering is defined by the repository.
      */
     @Override
     public List<Payment> getPaymentsByOrganization(
@@ -540,6 +709,7 @@ public class PaymentServiceImpl implements PaymentService {
                     "Organization ID is required"
             );
         }
+
 
         return paymentRepository
                 .findByOrganizationIdOrderByCreatedAtDesc(
@@ -553,7 +723,7 @@ public class PaymentServiceImpl implements PaymentService {
      *
      * Used by Admin to filter transactions.
      *
-     * Supported statuses:
+     * Supported:
      *
      * CREATED
      * SUCCESS
@@ -563,7 +733,8 @@ public class PaymentServiceImpl implements PaymentService {
     public List<Payment> getPaymentsByStatus(
             String status) {
 
-        if (status == null || status.isBlank()) {
+        if (status == null ||
+                status.isBlank()) {
 
             throw new IllegalArgumentException(
                     "Payment status is required"
@@ -572,7 +743,7 @@ public class PaymentServiceImpl implements PaymentService {
 
 
         /*
-         * Normalize status so:
+         * Normalize status.
          *
          * success
          * Success
@@ -587,7 +758,7 @@ public class PaymentServiceImpl implements PaymentService {
 
 
         /*
-         * Reject unsupported values.
+         * Reject unsupported status values.
          */
         if (!normalizedStatus.equals("CREATED") &&
                 !normalizedStatus.equals("SUCCESS") &&
