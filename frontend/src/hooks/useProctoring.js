@@ -449,9 +449,14 @@ export const useProctoring = () => {
     };
 
     const handleCopyPaste = (e) => {
-      e.preventDefault();
-      logReportOnlyViolation('COPY_PASTE_ATTEMPT', 'Copy/paste operations are disabled during the assessment.');
-    };
+  // Monaco editor ke andar copy/paste/right-click allow karo — 
+  // Monaco apna khud ka clipboard handling karta hai, usko interfere mat karo
+  if (e.target.closest && e.target.closest('.monaco-editor')) {
+    return;
+  }
+  e.preventDefault();
+  logReportOnlyViolation('COPY_PASTE_ATTEMPT', 'Copy/paste operations are disabled during the assessment.');
+};
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);

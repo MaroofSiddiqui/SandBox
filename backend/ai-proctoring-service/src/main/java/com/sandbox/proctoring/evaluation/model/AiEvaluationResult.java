@@ -22,6 +22,11 @@ public class AiEvaluationResult {
     private String efficiencyComments;
     private String bugsFound;
     private String constructiveFeedback;
+    private int testsPassed;
+    private int totalTests;
+    private double correctnessScore;
+    private int hiddenTestsPassed;
+    private int hiddenTotalTests;
 
     // Default constructor
     public AiEvaluationResult() {
@@ -140,5 +145,43 @@ public class AiEvaluationResult {
 
     public void setConstructiveFeedback(String constructiveFeedback) {
         this.constructiveFeedback = constructiveFeedback;
+    }
+    public int getTestsPassed() {
+        return testsPassed;
+    }
+
+    public void setTestsPassed(int testsPassed) {
+        this.testsPassed = testsPassed;
+    }
+
+    public int getTotalTests() {
+        return totalTests;
+    }
+
+    public void setTotalTests(int totalTests) {
+        this.totalTests = totalTests;
+    }
+
+    public double getCorrectnessScore() {
+        return correctnessScore;
+    }
+
+    public void setCorrectnessScore(double correctnessScore) {
+        this.correctnessScore = correctnessScore;
+    }
+    public int getHiddenTestsPassed() {
+        return hiddenTestsPassed;
+    }
+
+    public void setHiddenTestsPassed(int hiddenTestsPassed) {
+        this.hiddenTestsPassed = hiddenTestsPassed;
+    }
+
+    public int getHiddenTotalTests() {
+        return hiddenTotalTests;
+    }
+
+    public void setHiddenTotalTests(int hiddenTotalTests) {
+        this.hiddenTotalTests = hiddenTotalTests;
     }
 }
