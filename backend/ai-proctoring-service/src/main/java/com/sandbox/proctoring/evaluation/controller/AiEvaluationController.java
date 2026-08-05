@@ -22,7 +22,8 @@ import java.util.Optional;
 @CrossOrigin(origins = "*")
 public class AiEvaluationController {
 
-    @Autowired private AiEvaluationService evaluationService;
+	@Autowired(required = false)
+	private AiEvaluationService evaluationService;
     @Autowired private Judge0Service judge0Service;
     @Autowired private GeminiService geminiService;
 
