@@ -7,11 +7,16 @@ import org.springframework.stereotype.Service;
 
 import com.sandbox.dto.CandidateRequest;
 import com.sandbox.dto.CandidateResponse;
+import com.sandbox.entity.Organization;
+import com.sandbox.entity.Subscription;
 import com.sandbox.entity.Role;
 import com.sandbox.entity.User;
 import com.sandbox.exception.ResourceNotFoundException;
 import com.sandbox.repository.RoleRepository;
 import com.sandbox.repository.UserRepository;
+import com.sandbox.repository.OrganizationRepository;
+
+import java.time.LocalDateTime;
 
 /*
  * CANDIDATE SERVICE
@@ -42,346 +47,342 @@ import com.sandbox.repository.UserRepository;
 @Service
 public class CandidateService {
 
-    /*
-     * USER REPOSITORY
-     *
-     * Used for:
-     *
-     * - Checking duplicate emails
-     * - Saving candidates
-     * - Finding candidates
-     */
-    private final UserRepository userRepository;
+	/*
+	 * USER REPOSITORY
+	 *
+	 * Used for:
+	 *
+	 * - Checking duplicate emails - Saving candidates - Finding candidates
+	 */
+	private final UserRepository userRepository;
 
+	/*
+	 * ROLE REPOSITORY
+	 *
+	 * Used to retrieve the CANDIDATE role from the roles table.
+	 */
+	private final RoleRepository roleRepository;
 
-    /*
-     * ROLE REPOSITORY
-     *
-     * Used to retrieve the CANDIDATE role
-     * from the roles table.
-     */
-    private final RoleRepository roleRepository;
+	/*
+	 * PASSWORD ENCODER
+	 *
+	 * Used to hash the candidate's password before storing it in the database.
+	 */
+	private final PasswordEncoder passwordEncoder;
 
+	private final OrganizationRepository organizationRepository;
 
-    /*
-     * PASSWORD ENCODER
-     *
-     * Used to hash the candidate's password
-     * before storing it in the database.
-     */
-    private final PasswordEncoder passwordEncoder;
+	/*
+	 * CONSTRUCTOR DEPENDENCY INJECTION
+	 *
+	 * Spring automatically injects these dependencies.
+	 */
+	public CandidateService(UserRepository userRepository, RoleRepository roleRepository,
+			PasswordEncoder passwordEncoder, OrganizationRepository organizationRepository) {
 
+		this.userRepository = userRepository;
+		this.roleRepository = roleRepository;
+		this.passwordEncoder = passwordEncoder;
+		this.organizationRepository = organizationRepository;
+	}
 
-    /*
-     * CONSTRUCTOR DEPENDENCY INJECTION
-     *
-     * Spring automatically injects these dependencies.
-     */
-    public CandidateService(
-            UserRepository userRepository,
-            RoleRepository roleRepository,
-            PasswordEncoder passwordEncoder) {
+	/*
+	 * CREATE CANDIDATE
+	 *
+	 * Called when an HR sends:
+	 *
+	 * POST /candidates
+	 *
+	 * The candidate automatically belongs to the logged-in HR's organization.
+	 */
+	public CandidateResponse createEmployee(CandidateRequest request, User currentHr) {
 
-        this.userRepository = userRepository;
-        this.roleRepository = roleRepository;
-        this.passwordEncoder = passwordEncoder;
-    }
+		/*
+		 * STEP 1: VALIDATE ORGANIZATION SUBSCRIPTION
+		 */
+		Organization organization = validateActiveSubscription(currentHr);
 
+		Subscription subscription = organization.getSubscription();
 
-    /*
-     * CREATE CANDIDATE
-     *
-     * Called when an HR sends:
-     *
-     * POST /candidates
-     *
-     * The candidate automatically belongs to
-     * the logged-in HR's organization.
-     */
-    public CandidateResponse createEmployee(
-            CandidateRequest request,
-            User currentHr) {
+		/*
+		 * STEP 2: ENFORCE CANDIDATE LIMIT
+		 *
+		 * Example:
+		 *
+		 * Basic: maxCandidates = 100
+		 *
+		 * Current candidates = 100
+		 *
+		 * Result: New candidate creation is rejected.
+		 */
+		long currentCandidateCount = userRepository.countByOrganizationIdAndRoleName(organization.getId(), "CANDIDATE");
 
+		if (currentCandidateCount >= subscription.getMaxCandidates()) {
 
-        /*
-         * STEP 1: CHECK HR ORGANIZATION
-         *
-         * An HR must belong to an organization before
-         * they can create candidates.
-         */
-        if (currentHr.getOrganization() == null) {
+			throw new IllegalStateException("Candidate limit reached for the current subscription plan");
+		}
 
-            throw new IllegalArgumentException(
-                    "HR is not assigned to an organization"
-            );
-        }
+		/*
+		 * STEP 3: NORMALIZE EMAIL
+		 *
+		 * Remove unnecessary spaces and convert the email to lowercase.
+		 *
+		 * Example:
+		 *
+		 * " Aman.Verma@Acme.com "
+		 *
+		 * becomes:
+		 *
+		 * "aman.verma@acme.com"
+		 */
+		String email = request.getEmail().trim().toLowerCase();
 
+		/*
+		 * STEP 4: GET CANDIDATE ROLE
+		 *
+		 * The role is assigned by the backend.
+		 *
+		 * The client does NOT get to decide which role the new user receives.
+		 */
+		Role candidateRole = roleRepository.findByName("CANDIDATE")
+				.orElseThrow(() -> new IllegalArgumentException("CANDIDATE role not found"));
 
-        /*
-         * STEP 2: NORMALIZE EMAIL
-         *
-         * Example:
-         *
-         * " Aman.Verma@Acme.com "
-         *
-         * becomes:
-         *
-         * "aman.verma@acme.com"
-         */
-        String email =
-                request.getEmail()
-                        .trim()
-                        .toLowerCase();
+		/*
+		 * STEP 5: BUILD CANDIDATE USER
+		 */
+		User candidate = User.builder()
 
+				// Candidate's cleaned name
+				.name(request.getName().trim())
 
-        /*
-         * STEP 3: CHECK DUPLICATE EMAIL
-         *
-         * Every user must have a unique email.
-         */
-        if (userRepository.existsByEmail(email)) {
+				// Normalized email
+				.email(email)
 
-            throw new IllegalArgumentException(
-                    "Email already exists"
-            );
-        }
+				/*
+				 * Hash the plain-text password using BCrypt before storing it.
+				 */
+				.passwordHash(passwordEncoder.encode(request.getPassword()))
 
+				/*
+				 * Assign CANDIDATE role.
+				 */
+				.role(candidateRole)
 
-        /*
-         * STEP 4: GET CANDIDATE ROLE
-         *
-         * The role is assigned by the backend.
-         *
-         * The client does NOT get to decide which
-         * role the new user receives.
-         */
-        Role candidateRole =
-                roleRepository
-                        .findByName("CANDIDATE")
-                        .orElseThrow(() ->
-                                new IllegalArgumentException(
-                                        "CANDIDATE role not found"
-                                )
-                        );
+				/*
+				 * IMPORTANT:
+				 *
+				 * Candidate automatically gets the same organization as the logged-in HR.
+				 *
+				 * We do NOT accept organizationId from CandidateRequest.
+				 */
+				.organization(organization)
 
+				// New candidate starts as ACTIVE
+				.status("ACTIVE")
 
-        /*
-         * STEP 5: BUILD CANDIDATE USER
-         */
-        User candidate = User.builder()
+				.build();
 
-                // Candidate's cleaned name
-                .name(request.getName().trim())
+		/*
+		 * STEP 6: SAVE CANDIDATE
+		 *
+		 * Hibernate inserts the candidate into the users table.
+		 */
+		candidate = userRepository.save(candidate);
 
-                // Normalized email
-                .email(email)
+		/*
+		 * STEP 7: CONVERT ENTITY TO RESPONSE DTO
+		 *
+		 * We don't return the complete User entity because it contains
+		 * sensitive/internal information such as passwordHash.
+		 */
+		return toResponse(candidate);
+	}
 
-                /*
-                 * Hash the plain-text password using BCrypt
-                 * before storing it.
-                 */
-                .passwordHash(
-                        passwordEncoder.encode(
-                                request.getPassword()
-                        )
-                )
+	/*
+	 * GET ALL CANDIDATES
+	 *
+	 * Returns candidates belonging ONLY to the logged-in HR's organization.
+	 *
+	 * GET /candidates
+	 */
+	public List<CandidateResponse> getCandidates(User currentHr) {
 
-                /*
-                 * Assign CANDIDATE role.
-                 */
-                .role(candidateRole)
+		/*
+		 * HR must belong to an organization.
+		 */
+		if (currentHr.getOrganization() == null) {
 
-                /*
-                 * IMPORTANT:
-                 *
-                 * Candidate automatically gets the same
-                 * organization as the logged-in HR.
-                 *
-                 * We do NOT accept organizationId from
-                 * CandidateRequest.
-                 */
-                .organization(
-                        currentHr.getOrganization()
-                )
+			throw new IllegalArgumentException("HR is not assigned to an organization");
+		}
 
-                // New candidate starts as ACTIVE
-                .status("ACTIVE")
+		/*
+		 * Query users where:
+		 *
+		 * organization_id = HR's organization
+		 *
+		 * AND
+		 *
+		 * role.name = CANDIDATE
+		 *
+		 * This provides organization-level isolation.
+		 */
+		return userRepository.findByOrganizationIdAndRoleName(currentHr.getOrganization().getId(), "CANDIDATE")
 
-                .build();
+				/*
+				 * Convert List<User>
+				 *
+				 * into
+				 *
+				 * List<CandidateResponse>
+				 */
+				.stream().map(this::toResponse).toList();
+	}
 
+	/*
+	 * GET CANDIDATE BY ID
+	 *
+	 * GET /candidates/{id}
+	 *
+	 * Finds a candidate only if:
+	 *
+	 * 1. Candidate ID matches 2. Candidate belongs to HR's organization 3. User has
+	 * CANDIDATE role
+	 */
+	public CandidateResponse getCandidateById(Long id, User currentHr) {
 
-        /*
-         * STEP 6: SAVE CANDIDATE
-         *
-         * Hibernate inserts the candidate into
-         * the users table.
-         */
-        candidate = userRepository.save(candidate);
+		/*
+		 * HR must have an organization.
+		 */
+		if (currentHr.getOrganization() == null) {
 
+			throw new IllegalArgumentException("HR is not assigned to an organization");
+		}
 
-        /*
-         * STEP 7: CONVERT ENTITY TO RESPONSE DTO
-         *
-         * We don't return the complete User entity because
-         * it contains sensitive/internal information such
-         * as passwordHash.
-         */
-        return toResponse(candidate);
-    }
+		/*
+		 * ORGANIZATION-LEVEL SECURITY
+		 *
+		 * Instead of:
+		 *
+		 * findById(id)
+		 *
+		 * we search using:
+		 *
+		 * ID + organization ID + CANDIDATE role
+		 *
+		 * This prevents an HR from Organization A accessing a candidate from
+		 * Organization B simply by changing the ID in the URL.
+		 */
+		User candidate = userRepository
+				.findByIdAndOrganizationIdAndRoleName(id, currentHr.getOrganization().getId(), "CANDIDATE")
+				.orElseThrow(() -> new ResourceNotFoundException("Candidate not found"));
 
+		/*
+		 * Convert User entity into safe CandidateResponse.
+		 */
 
-    /*
-     * GET ALL CANDIDATES
-     *
-     * Returns candidates belonging ONLY to the
-     * logged-in HR's organization.
-     *
-     * GET /candidates
-     */
-    public List<CandidateResponse> getCandidates(
-            User currentHr) {
+		return toResponse(candidate);
+	}
 
+	/*
+	 * ENTITY → DTO CONVERSION
+	 *
+	 * Converts:
+	 *
+	 * User
+	 *
+	 * into:
+	 *
+	 * CandidateResponse
+	 *
+	 * This prevents sensitive fields such as passwordHash from being returned
+	 * through the API.
+	 */
 
-        /*
-         * HR must belong to an organization.
-         */
-        if (currentHr.getOrganization() == null) {
+	/*
+	 * VALIDATE HR SUBSCRIPTION
+	 *
+	 * Ensures that the HR's organization:
+	 *
+	 * 1. Exists 2. Is ACTIVE 3. Has a subscription 4. Has a non-expired
+	 * subscription
+	 *
+	 * The organization is reloaded using findByIdWithSubscription() so the
+	 * Subscription relationship is initialized correctly.
+	 */
+	private Organization validateActiveSubscription(User currentHr) {
 
-            throw new IllegalArgumentException(
-                    "HR is not assigned to an organization"
-            );
-        }
+		/*
+		 * HR must belong to an organization.
+		 */
+		if (currentHr.getOrganization() == null) {
 
+			throw new IllegalStateException("HR is not assigned to an organization");
+		}
 
-        /*
-         * Query users where:
-         *
-         * organization_id = HR's organization
-         *
-         * AND
-         *
-         * role.name = CANDIDATE
-         *
-         * This provides organization-level isolation.
-         */
-        return userRepository
-                .findByOrganizationIdAndRoleName(
-                        currentHr.getOrganization().getId(),
-                        "CANDIDATE"
-                )
+		Long organizationId = currentHr.getOrganization().getId();
 
-                /*
-                 * Convert List<User>
-                 *
-                 * into
-                 *
-                 * List<CandidateResponse>
-                 */
-                .stream()
-                .map(this::toResponse)
-                .toList();
-    }
+		/*
+		 * Reload Organization + Subscription.
+		 */
+		Organization organization = organizationRepository.findByIdWithSubscription(organizationId)
+				.orElseThrow(() -> new IllegalStateException("Organization not found"));
 
+		/*
+		 * Organization itself must be active.
+		 */
+		if (!"ACTIVE".equalsIgnoreCase(organization.getStatus())) {
 
-    /*
-     * GET CANDIDATE BY ID
-     *
-     * GET /candidates/{id}
-     *
-     * Finds a candidate only if:
-     *
-     * 1. Candidate ID matches
-     * 2. Candidate belongs to HR's organization
-     * 3. User has CANDIDATE role
-     */
-    public CandidateResponse getCandidateById(
-            Long id,
-            User currentHr) {
+			throw new IllegalStateException("Organization is inactive");
+		}
 
+		Subscription subscription = organization.getSubscription();
 
-        /*
-         * HR must have an organization.
-         */
-        if (currentHr.getOrganization() == null) {
+		/*
+		 * Organization must have purchased a plan.
+		 */
+		if (subscription == null) {
 
-            throw new IllegalArgumentException(
-                    "HR is not assigned to an organization"
-            );
-        }
+			throw new IllegalStateException("Active subscription required");
+		}
 
+		/*
+		 * Subscription must have an expiry date.
+		 */
+		if (organization.getSubscriptionExpiresAt() == null) {
 
-        /*
-         * ORGANIZATION-LEVEL SECURITY
-         *
-         * Instead of:
-         *
-         * findById(id)
-         *
-         * we search using:
-         *
-         * ID
-         * + organization ID
-         * + CANDIDATE role
-         *
-         * This prevents an HR from Organization A
-         * accessing a candidate from Organization B
-         * simply by changing the ID in the URL.
-         */
-        User candidate =
-                userRepository
-                        .findByIdAndOrganizationIdAndRoleName(
-                                id,
-                                currentHr.getOrganization().getId(),
-                                "CANDIDATE"
-                        )
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Candidate not found"
-                                )
-                        );
+			throw new IllegalStateException("Subscription expiry date is missing");
+		}
 
+		/*
+		 * Subscription must not be expired.
+		 */
+		if (!organization.getSubscriptionExpiresAt().isAfter(LocalDateTime.now())) {
 
-        /*
-         * Convert User entity into safe CandidateResponse.
-         */
-        return toResponse(candidate);
-    }
+			throw new IllegalStateException("Subscription has expired");
+		}
 
+		return organization;
+	}
 
-    /*
-     * ENTITY → DTO CONVERSION
-     *
-     * Converts:
-     *
-     * User
-     *
-     * into:
-     *
-     * CandidateResponse
-     *
-     * This prevents sensitive fields such as passwordHash
-     * from being returned through the API.
-     */
-    private CandidateResponse toResponse(User user) {
+	private CandidateResponse toResponse(User user) {
 
-        return new CandidateResponse(
+		return new CandidateResponse(
 
-                user.getId(),
+				user.getId(),
 
-                user.getName(),
+				user.getName(),
 
-                user.getEmail(),
+				user.getEmail(),
 
-                // Example: "CANDIDATE"
-                user.getRole().getName(),
+				// Example: "CANDIDATE"
+				user.getRole().getName(),
 
-                // Organization candidate belongs to
-                user.getOrganization().getId(),
+				// Organization candidate belongs to
+				user.getOrganization().getId(),
 
-                // ACTIVE / INACTIVE
-                user.getStatus(),
+				// ACTIVE / INACTIVE
+				user.getStatus(),
 
-                user.getCreatedAt()
-        );
-    }
+				user.getCreatedAt());
+	}
 }

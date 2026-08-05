@@ -5,6 +5,7 @@ import {
 } from "../api/paymentApi";
 import { loadRazorpayScript } from "../utils/razorpay";
 import axiosInstance from "../api/axiosInstance";
+import { getCurrentHrOrganization } from "../api/hrOrganizationApi";
 
 function SubscriptionPlans() {
 
@@ -12,35 +13,54 @@ function SubscriptionPlans() {
     const [loading, setLoading] = useState(true);
     const [paymentLoading, setPaymentLoading] = useState(null);
     const [error, setError] = useState("");
+    const [organization, setOrganization] = useState(null);
 
     /*
      * Load available subscription plans.
      */
     useEffect(() => {
 
-        const loadSubscriptions = async () => {
+        const loadPageData = async () => {
 
             try {
 
-                const response = await axiosInstance.get(
-                    "/admin/subscriptions"
-                );
+                const [
+                    subscriptionResponse,
+                    organizationResponse
+                ] = await Promise.all([
 
-                /*
-                 * Only show ACTIVE plans to organizations.
-                 */
-                const activePlans = response.data.filter(
-                    (plan) => plan.status === "ACTIVE"
-                );
+                    axiosInstance.get(
+                        "/admin/subscriptions"
+                    ),
+
+                    getCurrentHrOrganization()
+
+                ]);
+
+
+                const activePlans =
+                    subscriptionResponse.data.filter(
+                        (plan) => plan.status === "ACTIVE"
+                    );
+
 
                 setSubscriptions(activePlans);
 
+                setOrganization(
+                    organizationResponse
+                );
+
+
             } catch (err) {
 
-                console.error(err);
+                console.error(
+                    "Unable to load subscription page:",
+                    err
+                );
 
                 setError(
-                    "Unable to load subscription plans."
+                    err.response?.data?.message ||
+                    "Unable to load subscription information."
                 );
 
             } finally {
@@ -50,7 +70,8 @@ function SubscriptionPlans() {
             }
         };
 
-        loadSubscriptions();
+
+        loadPageData();
 
     }, []);
 
@@ -66,42 +87,17 @@ function SubscriptionPlans() {
             setError("");
 
             /*
-       * Get the currently logged-in HR from localStorage.
-       *
-       * Login/AuthContext stores the authenticated user's
-       * information here after successful login.
-       */
-            const storedUser = localStorage.getItem("user");
-
-            if (!storedUser) {
-                setError("Unable to identify the logged-in user.");
-                return;
-            }
-
-            const user = JSON.parse(storedUser);
-
-            /*
-             * HR must belong to an organization before purchasing
-             * a subscription.
-             */
-            if (!user.organizationId) {
-                setError(
-                    "Your account is not associated with an organization."
-                );
-                return;
-            }
-
-            const organizationId = user.organizationId;
-
-            /*
-             * Ask backend to create Razorpay order.
+             * Backend identifies the organization from
+             * the authenticated HR user's JWT.
+             *
+             * Frontend only sends subscriptionId.
              */
             const order = await createPaymentOrder(
-                organizationId,
                 subscription.id
             );
 
             console.log("Payment order:", order);
+
 
             /*
              * Load Razorpay Checkout.
@@ -117,6 +113,7 @@ function SubscriptionPlans() {
                 return;
             }
 
+
             /*
              * Razorpay Checkout configuration.
              */
@@ -124,11 +121,6 @@ function SubscriptionPlans() {
 
                 key: order.razorpayKey,
 
-                /*
-                 * Razorpay expects amount in paise.
-                 *
-                 * ₹2999 = 299900 paise
-                 */
                 amount: Math.round(
                     Number(order.amount) * 100
                 ),
@@ -142,11 +134,10 @@ function SubscriptionPlans() {
 
                 order_id: order.razorpayOrderId,
 
+
                 /*
-                 * Called after successful payment.
-                 *
-                 * For now we'll only print the response.
-                 * Verification comes in Step 19.
+                 * Razorpay calls this after
+                 * successful payment.
                  */
                 handler: async function (response) {
 
@@ -156,31 +147,49 @@ function SubscriptionPlans() {
                             "Razorpay payment completed."
                         );
 
+
                         /*
-                         * Send Razorpay payment details to our backend.
-                         *
-                         * Backend will verify the signature using
-                         * our Razorpay secret key.
+                         * Verify payment on backend.
                          */
-                        const verifiedPayment = await verifyPayment({
-                            razorpayOrderId:
-                                response.razorpay_order_id,
+                        const verifiedPayment =
+                            await verifyPayment({
 
-                            razorpayPaymentId:
-                                response.razorpay_payment_id,
+                                razorpayOrderId:
+                                    response.razorpay_order_id,
 
-                            razorpaySignature:
-                                response.razorpay_signature
-                        });
+                                razorpayPaymentId:
+                                    response.razorpay_payment_id,
+
+                                razorpaySignature:
+                                    response.razorpay_signature
+                            });
+
 
                         console.log(
                             "Verified payment:",
                             verifiedPayment
                         );
 
+
+                        /*
+                         * Reload organization information.
+                         *
+                         * verifyPayment() activates the
+                         * subscription in the backend, so
+                         * fetch the latest organization data.
+                         */
+                        const updatedOrganization =
+                            await getCurrentHrOrganization();
+
+                        setOrganization(
+                            updatedOrganization
+                        );
+
+
                         alert(
                             "Payment verified successfully!"
                         );
+
 
                     } catch (err) {
 
@@ -193,10 +202,9 @@ function SubscriptionPlans() {
                             err.response?.data?.message ||
                             "Payment was completed, but verification failed."
                         );
-
                     }
-
                 },
+
 
                 theme: {
                     color: "#2563eb"
@@ -207,7 +215,9 @@ function SubscriptionPlans() {
             /*
              * Open Razorpay Checkout.
              */
-            const razorpay = new window.Razorpay(options);
+            const razorpay =
+                new window.Razorpay(options);
+
 
             razorpay.on(
                 "payment.failed",
@@ -222,27 +232,30 @@ function SubscriptionPlans() {
                         response.error.description ||
                         "Payment failed."
                     );
-
                 }
             );
 
+
             razorpay.open();
+
 
         } catch (err) {
 
-            console.error(err);
+            console.error(
+                "Unable to start payment:",
+                err
+            );
 
             setError(
                 err.response?.data?.message ||
                 "Unable to start payment."
             );
 
+
         } finally {
 
             setPaymentLoading(null);
-
         }
-
     };
 
 
@@ -262,6 +275,49 @@ function SubscriptionPlans() {
         <div style={{ padding: "30px" }}>
 
             <h1>Subscription Plans</h1>
+
+            {organization && (
+                <div>
+                    <h2>
+                        Organization: {organization.name}
+                    </h2>
+
+                    {organization && (
+                        <div>
+
+                            <h2>
+                                Organization: {organization.organizationName}
+                            </h2>
+
+                            {organization.subscriptionId ? (
+                                <>
+                                    <p>
+                                        Current Plan: {organization.planName}
+                                    </p>
+
+                                    <p>
+                                        Status:{" "}
+                                        {organization.subscriptionActive
+                                            ? "ACTIVE"
+                                            : "EXPIRED"}
+                                    </p>
+
+                                    <p>
+                                        Started: {organization.subscriptionStartAt}
+                                    </p>
+
+                                    <p>
+                                        Expires: {organization.subscriptionExpiresAt}
+                                    </p>
+                                </>
+                            ) : (
+                                <p>No active subscription.</p>
+                            )}
+
+                        </div>
+                    )}
+                </div>
+            )}
 
             <p>
                 Choose a subscription plan for your organization.

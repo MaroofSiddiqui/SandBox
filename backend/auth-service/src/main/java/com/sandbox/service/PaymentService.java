@@ -10,31 +10,23 @@ import com.sandbox.entity.Payment;
 /*
  * PAYMENT SERVICE
  *
- * Purpose:
- * Defines all business operations related
- * to subscription payments.
- *
- * Responsibilities:
- *
- * 1. Create Razorpay payment orders.
- * 2. Verify completed Razorpay payments.
- * 3. Retrieve all payments for Admin monitoring.
- * 4. Retrieve payment history of an organization.
- * 5. Filter payments based on payment status.
+ * Defines business operations related to
+ * subscription payments.
  */
 public interface PaymentService {
 
     /*
      * CREATE PAYMENT ORDER
      *
-     * Creates a Razorpay order for the selected
-     * subscription plan.
+     * organizationId is NOT received from frontend.
      *
-     * The subscription price is fetched from
-     * the database instead of trusting an amount
-     * supplied by the frontend.
+     * PaymentController obtains it from the
+     * authenticated HR user and passes it here.
+     *
+     * The request contains only subscriptionId.
      */
     PaymentOrderResponse createOrder(
+            Long organizationId,
             CreatePaymentOrderRequest request
     );
 
@@ -42,11 +34,9 @@ public interface PaymentService {
     /*
      * VERIFY PAYMENT
      *
-     * Verifies the Razorpay signature received
-     * after payment completion.
-     *
-     * If verification succeeds, the corresponding
-     * payment record is marked SUCCESS.
+     * Verifies Razorpay payment signature and,
+     * after successful verification, activates
+     * the organization's purchased subscription.
      */
     Payment verifyPayment(
             PaymentVerificationRequest request
@@ -56,17 +46,13 @@ public interface PaymentService {
     /*
      * GET ALL PAYMENTS
      *
-     * Used by the Admin Payment Monitoring
-     * Dashboard.
+     * Used by SUPER_ADMIN for payment monitoring.
      */
     List<Payment> getAllPayments();
 
 
     /*
      * GET ORGANIZATION PAYMENT HISTORY
-     *
-     * Returns payments belonging to a particular
-     * organization, newest first.
      */
     List<Payment> getPaymentsByOrganization(
             Long organizationId
@@ -75,8 +61,6 @@ public interface PaymentService {
 
     /*
      * GET PAYMENTS BY STATUS
-     *
-     * Examples:
      *
      * CREATED
      * SUCCESS

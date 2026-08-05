@@ -6,20 +6,26 @@ import axiosInstance from "./axiosInstance";
  * Backend:
  * POST /admin/payments/orders
  */
+/*
+ * Create Razorpay order.
+ *
+ * SECURITY:
+ * organizationId is obtained by the backend
+ * from the authenticated HR.
+ */
 export const createPaymentOrder = async (
-  organizationId,
-  subscriptionId
+    subscriptionId
 ) => {
 
-  const response = await axiosInstance.post(
-    "/admin/payments/orders",
-    {
-      organizationId,
-      subscriptionId
-    }
-  );
+    const response =
+        await axiosInstance.post(
+            "/admin/payments/orders",
+            {
+                subscriptionId
+            }
+        );
 
-  return response.data;
+    return response.data;
 };
 
 

@@ -78,8 +78,8 @@ public class SecurityConfig {
 						// =========================
 						// HR APIs
 						// =========================
-						.requestMatchers("/candidates/**").hasRole("HR")
-
+						.requestMatchers("/candidates/**", "/hr/**").hasRole("HR")
+						
 						// Everything else requires JWT
 						.anyRequest().authenticated())
 
