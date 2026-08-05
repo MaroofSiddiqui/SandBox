@@ -3,10 +3,9 @@ import AgoraRTC from 'agora-rtc-sdk-ng';
 import { uploadViolationEvidence, logViolationEvent } from '../api/proctoringService';
 import { initializeFaceDetector, detectFacesInFrame } from '../utils/faceDetectionService';
 
-// Turn this to false in production so guardrails stay active
 const DEMO_MODE = false;
 
-// Agora client instance for streaming webcam feed to HR Dashboard
+// Create Agora client for webcam stream
 const agoraClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
 
 export const useProctoring = (
@@ -22,6 +21,7 @@ export const useProctoring = (
 
   const isRecordingRef = useRef(false);
   const isInitializingRef = useRef(false);
+  const isPromptActiveRef = useRef(false);
   const awayTimerRef = useRef(null);
   const isModifierPressedRef = useRef(false);
 
@@ -34,10 +34,21 @@ export const useProctoring = (
   const localAgoraVideoTrackRef = useRef(null);
   const localAgoraAudioTrackRef = useRef(null);
 
-  // Publish candidate stream to Agora channel for real-time HR monitoring
+  // Trigger fullscreen mode
+  const enterFullscreen = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (err) {
+      console.warn('[Proctoring Engine]: Fullscreen request blocked:', err.message);
+    }
+  }, []);
+
+  // Publish webcam feed to Agora channel
   const publishCandidateToAgora = useCallback(async () => {
     if (!agoraCredentials || !agoraCredentials.appId || !agoraCredentials.channelName) {
-      console.log('[Proctoring Engine]: Agora credentials not provided, skipping WebRTC live stream publish.');
+      console.log('[Proctoring Engine]: Agora credentials missing, skipping live stream.');
       return;
     }
 
@@ -52,13 +63,13 @@ export const useProctoring = (
       localAgoraAudioTrackRef.current = audioTrack;
 
       await agoraClient.publish([videoTrack, audioTrack]);
-      console.log('[Proctoring Engine]: Candidate live video & audio streams successfully published to Agora RTC channel.');
+      console.log('[Proctoring Engine]: Live stream published successfully.');
     } catch (err) {
-      console.warn('[Proctoring Engine]: Agora WebRTC live stream publish failed:', err.message);
+      console.warn('[Proctoring Engine]: Agora publish failed:', err.message);
     }
   }, [agoraCredentials]);
 
-  // Records a 30-second merged PiP video snippet when a security breach occurs
+  // Record 30-second video snippet when a violation occurs
   const trigger30SecRecording = useCallback((eventType) => {
     if (isRecordingRef.current) return;
 
@@ -66,7 +77,7 @@ export const useProctoring = (
     const currentScreen = screenStreamRef.current;
 
     if (!currentWebcam) {
-      console.error('[Proctoring Engine]: Active webcam stream unavailable for video capture.');
+      console.error('[Proctoring Engine]: Webcam stream not found.');
       return;
     }
 
@@ -141,7 +152,7 @@ export const useProctoring = (
           examId,
           timestamp: Date.now()
         })
-          .catch((err) => console.warn('[Proctoring Engine]: Evidence video upload failed:', err.message))
+          .catch((err) => console.warn('[Proctoring Engine]: Upload failed:', err.message))
           .finally(() => { isRecordingRef.current = false; });
       };
 
@@ -152,12 +163,12 @@ export const useProctoring = (
       }, 30000);
 
     } catch (error) {
-      console.error('[Proctoring Engine]: Error initializing Canvas PiP MediaRecorder:', error);
+      console.error('[Proctoring Engine]: MediaRecorder error:', error);
       isRecordingRef.current = false;
     }
   }, [candidateId, examId]);
 
-  // Logs violation event JSON to backend database
+  // Log violation details to backend
   const logReportOnlyViolation = useCallback((violationType, customMessage) => {
     setWarning({
       isOpen: true,
@@ -172,14 +183,15 @@ export const useProctoring = (
         violationType, 
         timestamp: Date.now(),
         details: customMessage
-      }).catch((err) => console.warn('[Proctoring Engine]: Backend offline for violation logging:', err.message));
+      }).catch((err) => console.warn('[Proctoring Engine]: Backend offline:', err.message));
     }
   }, [candidateId, examId]);
 
-  // Starts 5-second away grace timer for tab switch or window blur
+  // Start 2-second away timer for tab switch, blur, or app switch
   const startAwayTimer = useCallback((violationType) => {
-    if (awayTimerRef.current) return;
+    if (isInitializingRef.current || isPromptActiveRef.current || awayTimerRef.current) return;
 
+    // CHANGED TO 2 SECONDS (2000ms)
     awayTimerRef.current = setTimeout(() => {
       setWarning({
         isOpen: true,
@@ -193,16 +205,16 @@ export const useProctoring = (
           examId,
           violationType, 
           timestamp: Date.now(),
-          details: 'Candidate away from exam window for more than 5 seconds'
-        }).catch((err) => console.warn('[Proctoring Engine]: Backend offline for violation logging:', err.message));
+          details: 'Candidate away from window for more than 2 seconds'
+        }).catch((err) => console.warn('[Proctoring Engine]: Backend offline:', err.message));
       }
 
       trigger30SecRecording(violationType);
       awayTimerRef.current = null;
-    }, 5000);
+    }, 2000);
   }, [candidateId, examId, trigger30SecRecording]);
 
-  // Clears away timer if candidate returns quickly within 5 seconds
+  // Clear timer if candidate returns quickly within 2 seconds
   const clearAwayTimer = useCallback(() => {
     if (awayTimerRef.current) {
       clearTimeout(awayTimerRef.current);
@@ -210,12 +222,13 @@ export const useProctoring = (
     }
   }, []);
 
-  // Requests camera, microphone, and forces entire screen selection ('monitor')
+  // Request camera and screen access directly on user click
   const requestMediaStreams = useCallback(async () => {
-    if (isInitializingRef.current) return;
     isInitializingRef.current = true;
+    isPromptActiveRef.current = true;
 
     try {
+      // 1. Get Webcam Stream
       let userWebcamStream = webcamStreamRef.current;
       if (!userWebcamStream || !userWebcamStream.active) {
         userWebcamStream = await navigator.mediaDevices.getUserMedia({
@@ -227,6 +240,7 @@ export const useProctoring = (
       setWebcamStream(userWebcamStream);
       webcamStreamRef.current = userWebcamStream;
 
+      // 2. Request Entire Screen Share
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           displaySurface: 'monitor',
@@ -238,22 +252,24 @@ export const useProctoring = (
       const videoTrack = displayStream.getVideoTracks()[0];
       const settings = videoTrack.getSettings ? videoTrack.getSettings() : {};
 
+      // RESTRICT TO ENTIRE SCREEN ONLY
       if (settings.displaySurface && settings.displaySurface !== 'monitor') {
         videoTrack.stop();
         setScreenShareError('INVALID_SCREEN_SURFACE');
         
         setWarning({
           isOpen: true,
-          text: 'Security Warning: You must select your ENTIRE SCREEN. Sharing individual app windows or tabs is not allowed.',
+          text: 'Security Violation: You MUST select your ENTIRE SCREEN. Sharing individual windows or browser tabs is prohibited.',
           violationType: 'INVALID_SCREEN_SURFACE'
         });
-        return;
+        return false;
       }
 
+      // HANDLE STOP SHARING: Trigger violation
       videoTrack.onended = () => {
         logReportOnlyViolation(
           'SCREEN_SHARE_STOPPED',
-          'Screen share stopped! You must share your entire screen continuously during the exam.'
+          'Screen sharing was stopped! You must share your ENTIRE SCREEN continuously during the assessment.'
         );
       };
 
@@ -262,41 +278,37 @@ export const useProctoring = (
       setScreenShareError(null);
 
       publishCandidateToAgora();
+      return true;
 
     } catch (err) {
-      console.error('[Proctoring Engine]: Stream permission access denied:', err);
+      console.error('[Proctoring Engine]: Stream permission denied:', err);
       setScreenShareError('SCREEN_SHARE_DENIED');
       setWarning({
         isOpen: true,
         text: 'Screen Share Required: Please allow entire screen sharing to start the assessment.',
         violationType: 'SCREEN_SHARE_DENIED'
       });
+      return false;
     } finally {
-      isInitializingRef.current = false;
+      setTimeout(() => {
+        isInitializingRef.current = false;
+        isPromptActiveRef.current = false;
+      }, 2000);
     }
   }, [publishCandidateToAgora, logReportOnlyViolation]);
 
-  // Initialize camera and screen capture on mount
+  // Clean up media streams on component unmount
   useEffect(() => {
-    let isMounted = true;
-
-    const init = async () => {
-      if (isMounted) await requestMediaStreams();
-    };
-
-    init();
-
     return () => {
-      isMounted = false;
       if (webcamStreamRef.current) webcamStreamRef.current.getTracks().forEach((track) => track.stop());
       if (screenStreamRef.current) screenStreamRef.current.getTracks().forEach((track) => track.stop());
       if (localAgoraVideoTrackRef.current) localAgoraVideoTrackRef.current.close();
       if (localAgoraAudioTrackRef.current) localAgoraAudioTrackRef.current.close();
       agoraClient.leave();
     };
-  }, [requestMediaStreams]);
+  }, []);
 
-  // MediaPipe AI face detector frame loop
+  // AI face detection loop
   useEffect(() => {
     let active = true;
 
@@ -347,7 +359,7 @@ export const useProctoring = (
 
         processFrame();
       } catch (err) {
-        console.error('[Proctoring Engine]: AI vision face detector loop error:', err);
+        console.error('[Proctoring Engine]: AI face detection error:', err);
       }
     };
 
@@ -361,7 +373,7 @@ export const useProctoring = (
     };
   }, [webcamStream, warning.isOpen, logReportOnlyViolation]);
 
-  // Security OS listeners (Keyboard shortcuts, Blur/Tab switch, Fullscreen & Monaco Clipboard Exception)
+  // Security event listeners
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Alt' || e.key === 'Control' || e.key === 'Meta') {
@@ -381,12 +393,12 @@ export const useProctoring = (
     };
 
     const handleWindowBlur = () => {
-      if (DEMO_MODE) return;
+      if (DEMO_MODE || isPromptActiveRef.current || isInitializingRef.current) return;
       if (isModifierPressedRef.current) {
         startAwayTimer('KEYBOARD_APPLICATION_SWITCH');
         isModifierPressedRef.current = false;
       } else {
-        startAwayTimer('WINDOW_BLUR_OVER_5SEC');
+        startAwayTimer('WINDOW_BLUR_OVER_2SEC');
       }
     };
 
@@ -396,13 +408,13 @@ export const useProctoring = (
     };
 
     const handleVisibilityChange = () => {
-      if (DEMO_MODE) return;
+      if (DEMO_MODE || isPromptActiveRef.current || isInitializingRef.current) return;
       if (document.hidden) {
         if (isModifierPressedRef.current) {
           startAwayTimer('KEYBOARD_APPLICATION_SWITCH');
           isModifierPressedRef.current = false;
         } else {
-          startAwayTimer('TAB_SWITCH_OVER_5SEC');
+          startAwayTimer('TAB_SWITCH_OVER_2SEC');
         }
       } else {
         clearAwayTimer();
@@ -410,7 +422,7 @@ export const useProctoring = (
     };
 
     const handleFullscreenChange = () => {
-      if (DEMO_MODE) return;
+      if (DEMO_MODE || isPromptActiveRef.current || isInitializingRef.current) return;
       if (!document.fullscreenElement) {
         setWarning({
           isOpen: true,
@@ -434,11 +446,9 @@ export const useProctoring = (
       }
     };
 
-    // MERGED: Monaco Code Editor Exception handling for Copy/Paste/Context Menu
     const handleCopyPaste = (e) => {
       if (DEMO_MODE) return;
 
-      // Allow native copy/paste inside Monaco Code Editor
       if (e.target.closest && e.target.closest('.monaco-editor')) {
         return;
       }
@@ -471,28 +481,42 @@ export const useProctoring = (
     };
   }, [startAwayTimer, clearAwayTimer, logReportOnlyViolation, trigger30SecRecording, candidateId, examId]);
 
-  // Close warning popup and re-engage fullscreen or request media streams
-  const closeWarning = () => {
+  // Close warning modal and automatically re-prompt screen share + re-enter fullscreen
+  const closeWarning = async () => {
     noFaceTimerRef.current = 0;
     multiFaceTimerRef.current = 0;
 
     const lastViolationType = warning.violationType;
     setWarning({ isOpen: false, text: '', violationType: '' });
 
-    if (lastViolationType === 'INVALID_SCREEN_SURFACE' || lastViolationType === 'SCREEN_SHARE_DENIED') {
-      requestMediaStreams();
+    if (
+      lastViolationType === 'INVALID_SCREEN_SURFACE' || 
+      lastViolationType === 'SCREEN_SHARE_DENIED' || 
+      lastViolationType === 'SCREEN_SHARE_STOPPED'
+    ) {
+      const granted = await requestMediaStreams();
+      if (granted) {
+        await enterFullscreen();
+      }
       return;
     }
 
-    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch((err) => {
-        console.error('[Proctoring Engine]: Fullscreen request error:', err);
-      });
-    }
+    await enterFullscreen();
   };
 
-  return { warning, closeWarning, screenShareError, requestMediaStreams, webcamStream, screenStream };
+  return { 
+    warning, 
+    closeWarning, 
+    screenShareError, 
+    requestMediaStreams, 
+    enterFullscreen,
+    webcamStream, 
+    screenStream 
+  };
 };
 
-// Export both named and default for backwards compatibility across all feature branches
+export const handleMonacoPaste = (candidateId, examSessionId) => {
+  console.log(`[Proctoring]: Paste used in editor by ${candidateId} (session: ${examSessionId})`);
+};
+
 export default useProctoring;
