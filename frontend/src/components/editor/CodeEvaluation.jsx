@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
-import { ProctoringWrapper, handleMonacoPaste } from '../proctoring/ProctoringWrapper';
-import { useProctoring } from '../../hooks/useProctoring';
+import { ProctoringWrapper, useProctoringContext } from '../proctoring/ProctoringWrapper';
+import { handleMonacoPaste } from '../../hooks/useProctoring';
 
 const LANGUAGE_CONFIG = {
   java: {
@@ -73,6 +73,56 @@ const QUESTION_ID = "QUESTION_001";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8083/api";
 
+// Sub-component to manage webcam video DOM rendering
+const LiveWebcamView = () => {
+  const context = useProctoringContext();
+  const webcamStream = context?.webcamStream;
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    if (videoElement && webcamStream) {
+      videoElement.srcObject = webcamStream;
+      videoElement.play().catch((err) => console.warn("Video play error:", err));
+    }
+  }, [webcamStream]);
+
+  return (
+    <div style={{ marginTop: '20px', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e' }}></span>
+        <span style={{ color: '#1e3a8a', fontSize: '12px', fontWeight: 'bold' }}>Proctoring Active</span>
+        <span style={{ backgroundColor: '#ef4444', color: '#fff', fontSize: '10px', fontWeight: 'bold', padding: '1px 5px', borderRadius: '4px', marginLeft: 'auto' }}>
+          LIVE
+        </span>
+      </div>
+      
+      <div style={{
+        width: '130px',
+        height: '130px',
+        borderRadius: '10px',
+        overflow: 'hidden',
+        backgroundColor: '#000000',
+        border: '2px solid #cbd5e1',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+      }}>
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            transform: 'scaleX(-1)'
+          }}
+        />
+      </div>
+    </div>
+  );
+};
+
 const CodeEvaluation = () => {
   const [questionData, setQuestionData] = useState(null);
   const [questionError, setQuestionError] = useState('');
@@ -84,10 +134,6 @@ const CodeEvaluation = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Extract webcamStream from the proctoring hook
-  const { webcamStream } = useProctoring(CANDIDATE_ID, EXAM_SESSION_ID);
-
-  // --- Question ko backend se fetch karo jab component load ho ---
   useEffect(() => {
     const fetchQuestion = async () => {
       try {
@@ -111,7 +157,6 @@ const CodeEvaluation = () => {
     setSourceCode(LANGUAGE_CONFIG[newLang].defaultCode);
   };
 
-  // --- 1. RUN CODE — sirf visible test cases ---
   const handleRunCode = async () => {
     setIsRunning(true);
     setConsoleEntries([{ type: 'info', text: 'Running visible test cases... ⏳' }]);
@@ -160,7 +205,6 @@ const CodeEvaluation = () => {
     }
   };
 
-  // --- 2. SUBMIT CODE — sab test cases + AI evaluation ---
   const handleSubmitCode = async () => {
     setIsSubmitting(true);
     setConsoleEntries([{ type: 'info', text: 'Evaluating submission (test cases + AI review)... ⏳' }]);
@@ -202,7 +246,6 @@ const CodeEvaluation = () => {
     }
   };
 
-  // --- Console render helper ---
   const renderConsole = () => {
     if (consoleEntries.length === 0) {
       return <span style={{ color: '#888' }}>Output will appear here after running the code...</span>;
@@ -291,43 +334,8 @@ const CodeEvaluation = () => {
               ))}
           </div>
 
-          {/* COMPACT & NORMAL ASPECT RATIO WEBCAM CARD */}
-          <div style={{ marginTop: '20px', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e' }}></span>
-              <span style={{ color: '#1e3a8a', fontSize: '12px', fontWeight: 'bold' }}>Proctoring Active</span>
-              <span style={{ backgroundColor: '#ef4444', color: '#fff', fontSize: '10px', fontWeight: 'bold', padding: '1px 5px', borderRadius: '4px', marginLeft: 'auto' }}>
-                LIVE
-              </span>
-            </div>
-            
-            <div style={{
-              width: '130px',
-              height: '130px',
-              borderRadius: '10px',
-              overflow: 'hidden',
-              backgroundColor: '#000000',
-              border: '2px solid #cbd5e1',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-            }}>
-              <video
-                ref={(videoNode) => {
-                  if (videoNode && webcamStream) {
-                    videoNode.srcObject = webcamStream;
-                  }
-                }}
-                autoPlay
-                playsInline
-                muted
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  transform: 'scaleX(-1)'
-                }}
-              />
-            </div>
-          </div>
+          {/* WEBCAM CONTAINER */}
+          <LiveWebcamView />
         </div>
 
         {/* RIGHT PANEL */}
