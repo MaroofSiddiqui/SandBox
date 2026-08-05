@@ -34,7 +34,7 @@ export const useProctoring = (
   const localAgoraVideoTrackRef = useRef(null);
   const localAgoraAudioTrackRef = useRef(null);
 
-  // Trigger fullscreen mode
+  // Trigger browser Fullscreen mode
   const enterFullscreen = useCallback(async () => {
     try {
       if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
@@ -45,7 +45,7 @@ export const useProctoring = (
     }
   }, []);
 
-  // Publish webcam feed to Agora channel
+  // Publish webcam feed to Agora channel for HR monitoring
   const publishCandidateToAgora = useCallback(async () => {
     if (!agoraCredentials || !agoraCredentials.appId || !agoraCredentials.channelName) {
       console.log('[Proctoring Engine]: Agora credentials missing, skipping live stream.');
@@ -69,7 +69,7 @@ export const useProctoring = (
     }
   }, [agoraCredentials]);
 
-  // Record 30-second video snippet when a violation occurs
+  // Record 30-second video snippet on security violation
   const trigger30SecRecording = useCallback((eventType) => {
     if (isRecordingRef.current) return;
 
@@ -187,11 +187,10 @@ export const useProctoring = (
     }
   }, [candidateId, examId]);
 
-  // Start 2-second away timer for tab switch, blur, or app switch
+  // Start 2-second away grace timer for tab switch, window blur, or app switch
   const startAwayTimer = useCallback((violationType) => {
     if (isInitializingRef.current || isPromptActiveRef.current || awayTimerRef.current) return;
 
-    // CHANGED TO 2 SECONDS (2000ms)
     awayTimerRef.current = setTimeout(() => {
       setWarning({
         isOpen: true,
@@ -214,7 +213,7 @@ export const useProctoring = (
     }, 2000);
   }, [candidateId, examId, trigger30SecRecording]);
 
-  // Clear timer if candidate returns quickly within 2 seconds
+  // Clear timer if candidate returns within 2 seconds
   const clearAwayTimer = useCallback(() => {
     if (awayTimerRef.current) {
       clearTimeout(awayTimerRef.current);
@@ -252,7 +251,7 @@ export const useProctoring = (
       const videoTrack = displayStream.getVideoTracks()[0];
       const settings = videoTrack.getSettings ? videoTrack.getSettings() : {};
 
-      // RESTRICT TO ENTIRE SCREEN ONLY
+      // ENFORCE ENTIRE SCREEN ONLY: Reject tabs or windows
       if (settings.displaySurface && settings.displaySurface !== 'monitor') {
         videoTrack.stop();
         setScreenShareError('INVALID_SCREEN_SURFACE');
@@ -265,7 +264,7 @@ export const useProctoring = (
         return false;
       }
 
-      // HANDLE STOP SHARING: Trigger violation
+      // Handle candidate manually stopping screen share
       videoTrack.onended = () => {
         logReportOnlyViolation(
           'SCREEN_SHARE_STOPPED',
@@ -373,7 +372,7 @@ export const useProctoring = (
     };
   }, [webcamStream, warning.isOpen, logReportOnlyViolation]);
 
-  // Security event listeners
+  // Desktop Security Listeners
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Alt' || e.key === 'Control' || e.key === 'Meta') {
@@ -448,10 +447,7 @@ export const useProctoring = (
 
     const handleCopyPaste = (e) => {
       if (DEMO_MODE) return;
-
-      if (e.target.closest && e.target.closest('.monaco-editor')) {
-        return;
-      }
+      if (e.target.closest && e.target.closest('.monaco-editor')) return;
 
       e.preventDefault();
       logReportOnlyViolation('COPY_PASTE_ATTEMPT', 'Copy paste actions are disabled during exam.');
