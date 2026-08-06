@@ -7,7 +7,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-import axiosInstance from "../api/axiosInstance";
+import axiosInstance from "../../api/axiosInstance";
 import "./VerifyOtp.css";
 
 function VerifyOtp() {

@@ -5,7 +5,7 @@ import {
   Mail,
   ShieldCheck,
 } from "lucide-react";
-import axiosInstance from "../api/axiosInstance";
+import axiosInstance from "../../api/axiosInstance";
 import "./ForgotPassword.css";
 
 function ForgotPassword() {

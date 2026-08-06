@@ -10,7 +10,7 @@ import {
   User,
 } from "lucide-react";
 
-import axiosInstance from "../api/axiosInstance";
+import axiosInstance from "../../api/axiosInstance";
 import "./Login.css";
 import "./Register.css";
 

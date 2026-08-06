@@ -13,10 +13,10 @@ import {
 import { NavLink } from "react-router-dom";
 
 // Used to logout
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 
 // CSS
-import "../styles/sidebar.css";
+import "../../styles/sidebar.css";
 
 function Sidebar() {
 

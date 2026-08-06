@@ -1,5 +1,5 @@
 // React hook for reading logged-in user information
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 
 // Icons
 import {
@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 
 // CSS
-import "../styles/topbar.css";
+import "../../styles/topbar.css";
 
 function Topbar() {
 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import useProctoring from '../../hooks/useProctoring'; 
 import { WarningModal } from './WarningModal'; 
-import { isMobileDevice } from '../../utils/deviceCheck'; // Adjust path based on your folder structure
+import { isMobileDevice } from '../../utils/deviceCheck'; // Adjust relative path as needed
 
+// Create Context to make proctoring data accessible across child components
 const ProctoringContext = createContext(null);
 
 export const useProctoringContext = () => useContext(ProctoringContext);
@@ -14,7 +15,7 @@ export const ProctoringWrapper = ({ children, candidateId, examSessionId }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
 
-  // Check for mobile/tablet device on mount and window resize
+  // Check if candidate is using a mobile phone, tablet, or iPad on mount and window resize
   useEffect(() => {
     const checkDevice = () => {
       setIsMobile(isMobileDevice());
@@ -26,14 +27,17 @@ export const ProctoringWrapper = ({ children, candidateId, examSessionId }) => {
   }, []);
 
   const handleStartExam = async () => {
+    // 1. Trigger screen share prompt directly on user click
     const streamsGranted = await requestMediaStreams();
+    
+    // 2. Enter fullscreen mode after permissions are resolved
     if (streamsGranted) {
       await enterFullscreen();
       setIsStarted(true);
     }
   };
 
-  // BLOCK MOBILE / TABLET / IPAD DEVICES
+  // BLOCK ASSESSMENT IF ACCESSED FROM PHONE / TABLET / IPAD
   if (isMobile) {
     return (
       <div style={{
@@ -82,10 +86,12 @@ export const ProctoringWrapper = ({ children, candidateId, examSessionId }) => {
     );
   }
 
-  // DESKTOP/LAPTOP FLOW
+  // DESKTOP / LAPTOP ASSESSMENT FLOW
   return (
     <ProctoringContext.Provider value={proctoringData}>
       <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+        
+        {/* Splash Start Modal to trigger browser permission gesture safely */}
         {!isStarted && (
           <div style={{
             position: 'fixed',
@@ -136,12 +142,14 @@ export const ProctoringWrapper = ({ children, candidateId, examSessionId }) => {
           </div>
         )}
 
+        {/* Security Warning Popup */}
         <WarningModal 
           isOpen={warning.isOpen} 
           warningText={warning.text} 
           onClose={closeWarning} 
         />
         
+        {/* Children components (CodeEditor UI, Dashboards, etc.) */}
         {children}
       </div>
     </ProctoringContext.Provider>

@@ -8,7 +8,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-import axiosInstance from "../api/axiosInstance";
+import axiosInstance from "../../api/axiosInstance";
 import "./ResetPassword.css";
 
 function ResetPassword() {
