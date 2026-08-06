@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
@@ -19,98 +20,122 @@ import com.sandbox.security.JwtAuthenticationFilter;
 @Configuration
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final JwtAuthenticationEntryPoint authenticationEntryPoint;
-    private final JwtAccessDeniedHandler accessDeniedHandler;
+	private final JwtAuthenticationFilter jwtAuthenticationFilter;
+	private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+	private final JwtAccessDeniedHandler accessDeniedHandler;
 
-    public SecurityConfig(
-            JwtAuthenticationFilter jwtAuthenticationFilter,
-            JwtAuthenticationEntryPoint authenticationEntryPoint,
-            JwtAccessDeniedHandler accessDeniedHandler) {
+	public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+			JwtAuthenticationEntryPoint authenticationEntryPoint, JwtAccessDeniedHandler accessDeniedHandler) {
 
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-        this.authenticationEntryPoint = authenticationEntryPoint;
-        this.accessDeniedHandler = accessDeniedHandler;
-    }
+		this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+		this.authenticationEntryPoint = authenticationEntryPoint;
+		this.accessDeniedHandler = accessDeniedHandler;
+	}
 
-    @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	@Bean
+	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
-        http
-            // Enable CORS using the configuration below
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+		http
+				// Enable CORS using the configuration below
+				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-            .csrf(csrf -> csrf.disable())
+				.csrf(csrf -> csrf.disable())
 
-            // JWT authentication is stateless
-            .sessionManagement(session ->
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            )
+				// JWT authentication is stateless
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-            // Custom 401 and 403 responses
-            .exceptionHandling(exception -> exception
-                .authenticationEntryPoint(authenticationEntryPoint)
-                .accessDeniedHandler(accessDeniedHandler)
-            )
+				// Custom 401 and 403 responses
+				.exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint)
+						.accessDeniedHandler(accessDeniedHandler))
 
-            .authorizeHttpRequests(auth -> auth
+				.authorizeHttpRequests(auth -> auth
 
-                // Public APIs
-                .requestMatchers("/auth/login", "/error").permitAll()
+// =========================
+// PUBLIC APIs
+// =========================
+.requestMatchers(
+        "/auth/login",
+        "/api/auth/login",
+        "/api/auth/register",
+        "/api/auth/password/**",
+        "/api/auth/email/**",
+        "/error"
+).permitAll()
 
-                // Only SUPER_ADMIN
-                .requestMatchers(
-                    "/organizations/**",
-                    "/hrs/**"
-                ).hasRole("SUPER_ADMIN")
+						// =========================
+						// SUBSCRIPTION VIEWING
+						// HR + SUPER ADMIN
+						// =========================
+						.requestMatchers(HttpMethod.GET, "/admin/subscriptions", "/admin/subscriptions/**")
+						.hasAnyRole("HR", "SUPER_ADMIN")
 
-                // Only HR
-                .requestMatchers("/candidates/**").hasRole("HR")
+						// =========================
+						// SUBSCRIPTION MANAGEMENT
+						// SUPER ADMIN ONLY
+						// =========================
+						.requestMatchers("/admin/subscriptions/**").hasRole("SUPER_ADMIN")
 
-                // Everything else needs authentication
-                .anyRequest().authenticated()
-            )
+						// =========================
+						// SUPER ADMIN APIs
+						// =========================
+						.requestMatchers("/organizations/**", "/hrs/**").hasRole("SUPER_ADMIN")
 
-            // Validate JWT before Spring authorization
-            .addFilterBefore(
-                jwtAuthenticationFilter,
-                UsernamePasswordAuthenticationFilter.class
-            );
+						// =========================
+						// HR APIs
+						// =========================
+						.requestMatchers("/candidates/**", "/hr/**").hasRole("HR")
 
-        return http.build();
-    }
+						// =========================
+						// PAYMENT OPERATIONS
+						// HR
+						// =========================
 
-    @Bean
-    CorsConfigurationSource corsConfigurationSource() {
+						// HR creates Razorpay order
+						.requestMatchers(HttpMethod.POST, "/admin/payments/orders").hasRole("HR")
 
-        CorsConfiguration configuration = new CorsConfiguration();
+						// HR verifies completed Razorpay payment
+						.requestMatchers(HttpMethod.POST, "/admin/payments/verify").hasRole("HR")
 
-        // React development server
-        configuration.setAllowedOrigins(
-            List.of("http://localhost:5173")
-        );
+						// =========================
+						// PAYMENT MONITORING
+						// SUPER ADMIN
+						// =========================
 
-        // HTTP methods frontend can use
-        configuration.setAllowedMethods(
-            List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-        );
+						// Super Admin can monitor all payments,
+						// filter by organization and status.
+						.requestMatchers(HttpMethod.GET, "/admin/payments", "/admin/payments/**").hasRole("SUPER_ADMIN")
 
-        // Allow Authorization and Content-Type headers
-        configuration.setAllowedHeaders(
-            List.of("Authorization", "Content-Type")
-        );
+						// Everything else requires JWT
+						.anyRequest().authenticated())
 
-        // Allow browser to read Authorization header if needed
-        configuration.setExposedHeaders(
-            List.of("Authorization")
-        );
+				// Validate JWT before Spring authorization
+				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-        UrlBasedCorsConfigurationSource source =
-            new UrlBasedCorsConfigurationSource();
+		return http.build();
+	}
 
-        // Apply CORS configuration to every API
-        source.registerCorsConfiguration("/**", configuration);
+	@Bean
+	CorsConfigurationSource corsConfigurationSource() {
 
-        return source;
-    }
+		CorsConfiguration configuration = new CorsConfiguration();
+
+		// React development server
+		configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+
+		// HTTP methods frontend can use
+		configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+
+		// Allow Authorization and Content-Type headers
+		configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+
+		// Allow browser to read Authorization header if needed
+		configuration.setExposedHeaders(List.of("Authorization"));
+
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+
+		// Apply CORS configuration to every API
+		source.registerCorsConfiguration("/**", configuration);
+
+		return source;
+	}
 }

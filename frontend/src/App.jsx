@@ -16,10 +16,15 @@ import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import CandidateDashboard from "./pages/CandidateDashboard";
 
 import AdminLayout from "./layouts/AdminLayout";
+import PaymentMonitoring from "./pages/admin/PaymentMonitoring";
 
 import Dashboard from "./pages/admin/Dashboard";
+import Candidates from "./pages/Candidates";
 import Organizations from "./pages/admin/Organizations";
 import HrManagement from "./pages/admin/HrManagement";
+
+import SubscriptionManagement from "./pages/admin/SubscriptionManagement";
+import SubscriptionPlans from "./pages/SubscriptionPlans";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -60,7 +65,7 @@ function App() {
         path="/verify-email"
         element={<VerifyEmail />}
       />
-      
+
       <Route
         path="/access-denied"
         element={<AccessDenied />}
@@ -99,41 +104,69 @@ function App() {
         }
       />
 
+      <Route
+        path="/hr/candidates"
+        element={
+          <ProtectedRoute allowedRoles={["HR"]}>
+            <Candidates />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/hr/subscriptions"
+        element={
+          <ProtectedRoute allowedRoles={["HR"]}>
+            <SubscriptionPlans />
+          </ProtectedRoute>
+        }
+      />
+
 
       {/* =========================
           SUPER ADMIN ROUTES
          ========================= */}
 
       <Route
-  path="/admin"
-  element={
-    <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
-      <AdminLayout />
-    </ProtectedRoute>
-  }
->
+        path="/admin"
+        element={
+          <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
 
-  <Route
-    index
-    element={<Navigate to="dashboard" replace />}
-  />
+        <Route
+          index
+          element={<Navigate to="dashboard" replace />}
+        />
 
-  <Route
-    path="dashboard"
-    element={<Dashboard />}
-  />
+        <Route
+          path="dashboard"
+          element={<Dashboard />}
+        />
 
-  <Route
-    path="organizations"
-    element={<Organizations />}
-  />
+        <Route
+          path="organizations"
+          element={<Organizations />}
+        />
 
-  <Route
-    path="hrs"
-    element={<HrManagement />}
-  />
+        <Route
+          path="hrs"
+          element={<HrManagement />}
+        />
 
-    </Route>
+        <Route
+          path="subscriptions"
+          element={<SubscriptionManagement />}
+        />
+
+        <Route
+          path="payments"
+          element={<PaymentMonitoring />}
+        />
+
+      </Route>
 
 
       {/* =========================

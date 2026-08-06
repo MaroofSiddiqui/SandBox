@@ -116,8 +116,7 @@ function Organizations() {
         <div className="page-container">
 
             {/* Page Header */}
-            <div className="page-header">
-                <h1>Organizations</h1>
+            <div className="page-header page-header-right">
 
                 <button
                     className="primary-btn"
@@ -125,6 +124,7 @@ function Organizations() {
                 >
                     + Add Organization
                 </button>
+
             </div>
 
             {/* Search */}
@@ -148,7 +148,6 @@ function Organizations() {
 
                     <thead>
                         <tr>
-                            <th>ID</th>
                             <th>Name</th>
                             <th>Domain</th>
                             <th>Status</th>
@@ -175,7 +174,6 @@ function Organizations() {
                                 filteredOrganizations.map(org => (
 
                                     <tr key={org.id}>
-                                        <td>{org.id}</td>
                                         <td>{org.name}</td>
                                         <td>{org.domain}</td>
                                         <td>{org.status}</td>

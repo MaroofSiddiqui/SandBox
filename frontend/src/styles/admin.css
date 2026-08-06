@@ -156,6 +156,12 @@
     color:#111827;
 }
 
+.page-header-right {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+}
+
 /* ===============================
    Buttons
 ================================= */

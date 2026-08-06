@@ -24,6 +24,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // Used to get all users belonging to an organization
     List<User> findByOrganizationId(Long organizationId);
 
+    /*
+     * Used by HrService to retrieve all HR users
+     * across all organizations.
+     */
+    List<User> findByRoleName(String roleName);
+
     // Used to get a specific candidate from the HR's organization
     Optional<User> findByIdAndOrganizationIdAndRoleName(
             Long id,
@@ -33,11 +39,23 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // Loads role + organization for JWT authentication
     @Query("""
-           SELECT u
-           FROM User u
-           LEFT JOIN FETCH u.role
-           LEFT JOIN FETCH u.organization
-           WHERE u.email = :email
-           """)
-    Optional<User> findForAuthentication(@Param("email") String email);
+            SELECT u
+            FROM User u
+            LEFT JOIN FETCH u.role
+            LEFT JOIN FETCH u.organization
+            WHERE u.email = :email
+            """)
+    Optional<User> findForAuthentication(
+            @Param("email") String email
+    );
+
+    /*
+     * COUNT CANDIDATES OF AN ORGANIZATION
+     *
+     * Used for subscription candidate-limit enforcement.
+     */
+    long countByOrganizationIdAndRoleName(
+            Long organizationId,
+            String roleName
+    );
 }
