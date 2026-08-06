@@ -280,7 +280,7 @@ export const useProctoring = (
       return true;
 
     } catch (err) {
-      console.error('[Proctoring Engine]: Stream permission denied:', err);
+      console.error('[Proctoring Engine]: Stream permission access denied:', err);
       setScreenShareError('SCREEN_SHARE_DENIED');
       setWarning({
         isOpen: true,
@@ -445,6 +445,7 @@ export const useProctoring = (
       }
     };
 
+    // MERGED: Monaco Code Editor Exception handling for Copy/Paste/Context Menu
     const handleCopyPaste = (e) => {
       if (DEMO_MODE) return;
       if (e.target.closest && e.target.closest('.monaco-editor')) return;
@@ -515,4 +516,5 @@ export const handleMonacoPaste = (candidateId, examSessionId) => {
   console.log(`[Proctoring]: Paste used in editor by ${candidateId} (session: ${examSessionId})`);
 };
 
+// Export both named and default for backwards compatibility across all feature branches
 export default useProctoring;
