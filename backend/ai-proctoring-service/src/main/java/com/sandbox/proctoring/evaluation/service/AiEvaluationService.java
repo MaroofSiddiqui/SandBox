@@ -23,15 +23,12 @@ import java.util.stream.Collectors;
 @Service
 public class AiEvaluationService {
 
-    @Autowired private EvaluationRepository evaluationRepository;
-    @Autowired private Judge0Service judge0Service;
-    @Autowired private QuestionRepository questionRepository;
-    @Autowired private GeminiService geminiService;
+	@Autowired(required = false) private EvaluationRepository evaluationRepository;
+	@Autowired(required = false) private Judge0Service judge0Service;
+	@Autowired(required = false) private QuestionRepository questionRepository;
+	@Autowired(required = false) private GeminiService geminiService;
 
     public AiEvaluationResult saveEvaluation(AiEvaluationResult evaluation) {
-        if (evaluation.getId() == null || evaluation.getId().isEmpty()) {
-            evaluation.setId(UUID.randomUUID().toString());
-        }
         return evaluationRepository.save(evaluation);
     }
 

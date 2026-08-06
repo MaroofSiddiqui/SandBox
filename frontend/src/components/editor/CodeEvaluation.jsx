@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
-import { ProctoringWrapper, handleMonacoPaste } from '../proctoring/ProctoringWrapper';
+import { ProctoringWrapper, useProctoringContext } from '../proctoring/ProctoringWrapper';
+import { handleMonacoPaste } from '../../hooks/useProctoring';
 
 const LANGUAGE_CONFIG = {
   java: {
@@ -68,11 +69,59 @@ rl.on('close', () => {
 
 const CANDIDATE_ID = "CAND-001";
 const EXAM_SESSION_ID = "EXAM-001";
-// Abhi ke liye fixed rakha hai — jab question-selection screen banega,
-// isko route param (useParams) se lena hoga
 const QUESTION_ID = "QUESTION_001";
 
-const API_BASE = "http://localhost:8083/api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8083/api";
+
+// Sub-component to manage webcam video DOM rendering
+const LiveWebcamView = () => {
+  const context = useProctoringContext();
+  const webcamStream = context?.webcamStream;
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    if (videoElement && webcamStream) {
+      videoElement.srcObject = webcamStream;
+      videoElement.play().catch((err) => console.warn("Video play error:", err));
+    }
+  }, [webcamStream]);
+
+  return (
+    <div style={{ marginTop: '20px', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e' }}></span>
+        <span style={{ color: '#1e3a8a', fontSize: '12px', fontWeight: 'bold' }}>Proctoring Active</span>
+        <span style={{ backgroundColor: '#ef4444', color: '#fff', fontSize: '10px', fontWeight: 'bold', padding: '1px 5px', borderRadius: '4px', marginLeft: 'auto' }}>
+          LIVE
+        </span>
+      </div>
+      
+      <div style={{
+        width: '130px',
+        height: '130px',
+        borderRadius: '10px',
+        overflow: 'hidden',
+        backgroundColor: '#000000',
+        border: '2px solid #cbd5e1',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+      }}>
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            transform: 'scaleX(-1)'
+          }}
+        />
+      </div>
+    </div>
+  );
+};
 
 const CodeEvaluation = () => {
   const [questionData, setQuestionData] = useState(null);
@@ -81,12 +130,10 @@ const CodeEvaluation = () => {
   const [selectedLang, setSelectedLang] = useState('java');
   const [sourceCode, setSourceCode] = useState(LANGUAGE_CONFIG['java'].defaultCode);
 
-  // Console ab structured rahega — text nahi, entries ka array
   const [consoleEntries, setConsoleEntries] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- Question ko backend se fetch karo jab component load ho ---
   useEffect(() => {
     const fetchQuestion = async () => {
       try {
@@ -98,7 +145,7 @@ const CodeEvaluation = () => {
         const data = await response.json();
         setQuestionData(data);
       } catch (error) {
-        setQuestionError("Could not connect to backend to fetch question.");
+        setQuestionError(`Could not connect to backend server at ${API_BASE}`);
       }
     };
     fetchQuestion();
@@ -110,7 +157,6 @@ const CodeEvaluation = () => {
     setSourceCode(LANGUAGE_CONFIG[newLang].defaultCode);
   };
 
-  // --- 1. RUN CODE — sirf visible test cases, real console jaisa per-case result ---
   const handleRunCode = async () => {
     setIsRunning(true);
     setConsoleEntries([{ type: 'info', text: 'Running visible test cases... ⏳' }]);
@@ -140,7 +186,6 @@ const CodeEvaluation = () => {
         return;
       }
 
-      // parsed = array of { testCaseNumber, input, expectedOutput, actualOutput, passed, errorMessage }
       const entries = parsed.map((tc) => ({
         type: 'testcase',
         testCaseNumber: tc.testCaseNumber,
@@ -154,13 +199,12 @@ const CodeEvaluation = () => {
       setConsoleEntries(entries);
 
     } catch (error) {
-      setConsoleEntries([{ type: 'error', text: "Error: Could not connect to backend server on port 8083." }]);
+      setConsoleEntries([{ type: 'error', text: `Error: Could not connect to backend server at ${API_BASE}.` }]);
     } finally {
       setIsRunning(false);
     }
   };
 
-  // --- 2. SUBMIT CODE — sab test cases (hidden included) + AI evaluation ---
   const handleSubmitCode = async () => {
     setIsSubmitting(true);
     setConsoleEntries([{ type: 'info', text: 'Evaluating submission (test cases + AI review)... ⏳' }]);
@@ -202,7 +246,6 @@ const CodeEvaluation = () => {
     }
   };
 
-  // --- Console render helper ---
   const renderConsole = () => {
     if (consoleEntries.length === 0) {
       return <span style={{ color: '#888' }}>Output will appear here after running the code...</span>;
@@ -231,18 +274,18 @@ const CodeEvaluation = () => {
         );
       }
       if (entry.type === 'submission') {
-  const r = entry.result;
-  return (
-    <div key={idx}>
-      <div style={{ color: '#4ade80', fontWeight: 'bold', fontSize: '16px', marginBottom: '8px' }}>
-        ✅ {r.message}
-      </div>
-      <div style={{ color: '#e2e8f0' }}>
-        Hidden Test Cases Passed: {r.hiddenTestsPassed} / {r.hiddenTotalTests}
-      </div>
-    </div>
-  );
-}
+        const r = entry.result;
+        return (
+          <div key={idx}>
+            <div style={{ color: '#4ade80', fontWeight: 'bold', fontSize: '16px', marginBottom: '8px' }}>
+              ✅ {r.message || "Code submitted successfully!"}
+            </div>
+            <div style={{ color: '#e2e8f0' }}>
+              Hidden Test Cases Passed: {r.hiddenTestsPassed} / {r.hiddenTotalTests}
+            </div>
+          </div>
+        );
+      }
       return null;
     });
   };
@@ -268,27 +311,31 @@ const CodeEvaluation = () => {
       <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f3f4f6', fontFamily: 'Arial, sans-serif' }}>
 
         {/* LEFT PANEL */}
-        <div style={{ width: '40%', padding: '20px', borderRight: '1px solid #ccc', overflowY: 'auto', backgroundColor: '#ffffff' , userSelect: 'none'}}>
-          <h2 style={{ color: '#1e3a8a', marginTop: 0 }}>{questionData.title}</h2>
-          <p style={{ color: '#334155', lineHeight: '1.6' }}>{questionData.description}</p>
+        <div style={{ width: '40%', padding: '20px', borderRight: '1px solid #ccc', overflowY: 'auto', backgroundColor: '#ffffff', userSelect: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <h2 style={{ color: '#1e3a8a', marginTop: 0 }}>{questionData.title}</h2>
+            <p style={{ color: '#334155', lineHeight: '1.6' }}>{questionData.description}</p>
 
-          {questionData.constraints && (
-            <>
-              <h4 style={{ borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Constraints</h4>
-              <pre style={{ background: '#f8fafc', padding: '10px', borderRadius: '5px', color: '#dc2626' }}>{questionData.constraints}</pre>
-            </>
-          )}
+            {questionData.constraints && (
+              <>
+                <h4 style={{ borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Constraints</h4>
+                <pre style={{ background: '#f8fafc', padding: '10px', borderRadius: '5px', color: '#dc2626' }}>{questionData.constraints}</pre>
+              </>
+            )}
 
-          {/* Visible test cases yahi se dikha rahe hain — hidden wale kabhi frontend pe aate hi nahi */}
-          <h4 style={{ borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Sample Test Cases</h4>
-          {(questionData.testCases || [])
-            .filter((tc) => !tc.hidden)
-            .map((tc, idx) => (
-              <div key={idx} style={{ marginBottom: '10px' }}>
-                <pre style={{ background: '#f8fafc', padding: '10px', borderRadius: '5px', marginBottom: '4px' }}>Input: {tc.input}</pre>
-                <pre style={{ background: '#f8fafc', padding: '10px', borderRadius: '5px' }}>Expected Output: {tc.expectedOutput}</pre>
-              </div>
-            ))}
+            <h4 style={{ borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Sample Test Cases</h4>
+            {(questionData.testCases || [])
+              .filter((tc) => !tc.hidden)
+              .map((tc, idx) => (
+                <div key={idx} style={{ marginBottom: '10px' }}>
+                  <pre style={{ background: '#f8fafc', padding: '10px', borderRadius: '5px', marginBottom: '4px' }}>Input: {tc.input}</pre>
+                  <pre style={{ background: '#f8fafc', padding: '10px', borderRadius: '5px' }}>Expected Output: {tc.expectedOutput}</pre>
+                </div>
+              ))}
+          </div>
+
+          {/* WEBCAM CONTAINER */}
+          <LiveWebcamView />
         </div>
 
         {/* RIGHT PANEL */}

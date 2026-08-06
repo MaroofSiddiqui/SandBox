@@ -24,12 +24,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // Used to get all users belonging to an organization
     List<User> findByOrganizationId(Long organizationId);
 
-    /*
-     * Used by HrService to retrieve all HR users
-     * across all organizations.
-     */
-    List<User> findByRoleName(String roleName);
-    
     // Used to get a specific candidate from the HR's organization
     Optional<User> findByIdAndOrganizationIdAndRoleName(
             Long id,
