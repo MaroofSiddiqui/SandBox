@@ -1,46 +1,48 @@
 import axiosInstance from "./axiosInstance";
 
-/*
- * Create Razorpay order
- *
- * Backend:
- * POST /admin/payments/orders
- */
-/*
- * Create Razorpay order.
- *
- * SECURITY:
- * organizationId is obtained by the backend
- * from the authenticated HR.
- */
-export const createPaymentOrder = async (
-    subscriptionId
-) => {
 
-    const response =
-        await axiosInstance.post(
-            "/admin/payments/orders",
-            {
-                subscriptionId
-            }
-        );
+/*
+ * Create Razorpay payment order.
+ *
+ * Backend identifies organization
+ * from authenticated HR's JWT.
+ */
+export const createPaymentOrder = async (subscriptionId) => {
+
+    const response = await axiosInstance.post(
+        "/admin/payments/orders",
+        {
+            subscriptionId
+        }
+    );
 
     return response.data;
 };
 
 
 /*
- * Verify Razorpay payment
- *
- * We will use this after Razorpay Checkout
- * successfully completes the payment.
+ * Verify Razorpay payment.
  */
 export const verifyPayment = async (paymentData) => {
 
-  const response = await axiosInstance.post(
-    "/admin/payments/verify",
-    paymentData
-  );
+    const response = await axiosInstance.post(
+        "/admin/payments/verify",
+        paymentData
+    );
 
-  return response.data;
+    return response.data;
+};
+
+
+/*
+ * Get payment history of currently
+ * authenticated HR's organization.
+ */
+export const getHrPaymentHistory = async () => {
+
+    const response = await axiosInstance.get(
+        "/hr/subscription/payments"
+    );
+
+    return response.data;
 };

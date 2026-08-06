@@ -16,8 +16,10 @@ import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import CandidateDashboard from "./pages/CandidateDashboard";
 
 import AdminLayout from "./layouts/AdminLayout";
+import PaymentMonitoring from "./pages/admin/PaymentMonitoring";
 
 import Dashboard from "./pages/admin/Dashboard";
+import Candidates from "./pages/Candidates";
 import Organizations from "./pages/admin/Organizations";
 import HrManagement from "./pages/admin/HrManagement";
 
@@ -103,6 +105,15 @@ function App() {
       />
 
       <Route
+        path="/hr/candidates"
+        element={
+          <ProtectedRoute allowedRoles={["HR"]}>
+            <Candidates />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/hr/subscriptions"
         element={
           <ProtectedRoute allowedRoles={["HR"]}>
@@ -148,6 +159,11 @@ function App() {
         <Route
           path="subscriptions"
           element={<SubscriptionManagement />}
+        />
+
+        <Route
+          path="payments"
+          element={<PaymentMonitoring />}
         />
 
       </Route>

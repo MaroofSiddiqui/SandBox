@@ -12,27 +12,23 @@ import com.sandbox.entity.Organization;
 import com.sandbox.entity.Payment;
 import com.sandbox.entity.Subscription;
 import com.sandbox.entity.User;
+import com.sandbox.repository.OrganizationRepository;
 import com.sandbox.service.PaymentService;
 
-/*
- * HR SUBSCRIPTION CONTROLLER
- *
- * Provides subscription/payment information for
- * the currently authenticated HR's organization.
- *
- * SECURITY:
- * Organization ID is never accepted from React.
- */
 @RestController
 @RequestMapping("/hr/subscription")
 public class HrSubscriptionController {
 
     private final PaymentService paymentService;
+    private final OrganizationRepository organizationRepository;
+
 
     public HrSubscriptionController(
-            PaymentService paymentService) {
+            PaymentService paymentService,
+            OrganizationRepository organizationRepository) {
 
         this.paymentService = paymentService;
+        this.organizationRepository = organizationRepository;
     }
 
 
@@ -46,18 +42,43 @@ public class HrSubscriptionController {
             getCurrentSubscription(
                     Authentication authentication) {
 
+
         User currentUser =
                 (User) authentication.getPrincipal();
 
-        Organization organization =
-                currentUser.getOrganization();
 
-        if (organization == null) {
+        /*
+         * User must belong to an organization.
+         */
+        if (currentUser.getOrganization() == null) {
 
             throw new IllegalStateException(
                     "User is not associated with an organization"
             );
         }
+
+
+        Long organizationId =
+                currentUser.getOrganization().getId();
+
+
+        /*
+         * Reload organization together with subscription.
+         *
+         * This avoids LazyInitializationException because
+         * the Organization stored in the JWT principal may
+         * not have its Subscription initialized.
+         */
+        Organization organization =
+                organizationRepository
+                        .findByIdWithSubscription(
+                                organizationId
+                        )
+                        .orElseThrow(() ->
+                                new IllegalStateException(
+                                        "Organization not found"
+                                )
+                        );
 
 
         Subscription subscription =
@@ -69,20 +90,38 @@ public class HrSubscriptionController {
          */
         if (subscription == null) {
 
-            return ResponseEntity.noContent().build();
+            return ResponseEntity
+                    .noContent()
+                    .build();
         }
 
 
         /*
-         * Subscription is active only when its
-         * expiry date is still in the future.
+         * Subscription is active only when:
+         *
+         * 1. Organization is ACTIVE
+         * 2. Subscription plan is ACTIVE
+         * 3. Expiry exists
+         * 4. Expiry is still in the future
          */
         boolean active =
-                organization.getSubscriptionExpiresAt() != null
-                &&
-                organization
-                    .getSubscriptionExpiresAt()
-                    .isAfter(LocalDateTime.now());
+
+                "ACTIVE".equalsIgnoreCase(
+                        organization.getStatus()
+                )
+
+                && "ACTIVE".equalsIgnoreCase(
+                        subscription.getStatus()
+                )
+
+                && organization
+                        .getSubscriptionExpiresAt() != null
+
+                && organization
+                        .getSubscriptionExpiresAt()
+                        .isAfter(
+                                LocalDateTime.now()
+                        );
 
 
         CurrentSubscriptionResponse response =
@@ -121,21 +160,19 @@ public class HrSubscriptionController {
      *
      * GET /hr/subscription/payments
      *
-     * Again, organization ID comes from the
-     * authenticated HR and not from frontend.
+     * Organization ID comes from authenticated HR.
      */
     @GetMapping("/payments")
     public ResponseEntity<List<Payment>>
             getPaymentHistory(
                     Authentication authentication) {
 
+
         User currentUser =
                 (User) authentication.getPrincipal();
 
-        Organization organization =
-                currentUser.getOrganization();
 
-        if (organization == null) {
+        if (currentUser.getOrganization() == null) {
 
             throw new IllegalStateException(
                     "User is not associated with an organization"
@@ -143,12 +180,18 @@ public class HrSubscriptionController {
         }
 
 
+        Long organizationId =
+                currentUser
+                        .getOrganization()
+                        .getId();
+
+
         return ResponseEntity.ok(
 
                 paymentService
-                    .getPaymentsByOrganization(
-                            organization.getId()
-                    )
+                        .getPaymentsByOrganization(
+                                organizationId
+                        )
         );
     }
 }

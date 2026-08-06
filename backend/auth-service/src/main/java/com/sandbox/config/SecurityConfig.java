@@ -79,7 +79,27 @@ public class SecurityConfig {
 						// HR APIs
 						// =========================
 						.requestMatchers("/candidates/**", "/hr/**").hasRole("HR")
-						
+
+						// =========================
+						// PAYMENT OPERATIONS
+						// HR
+						// =========================
+
+						// HR creates Razorpay order
+						.requestMatchers(HttpMethod.POST, "/admin/payments/orders").hasRole("HR")
+
+						// HR verifies completed Razorpay payment
+						.requestMatchers(HttpMethod.POST, "/admin/payments/verify").hasRole("HR")
+
+						// =========================
+						// PAYMENT MONITORING
+						// SUPER ADMIN
+						// =========================
+
+						// Super Admin can monitor all payments,
+						// filter by organization and status.
+						.requestMatchers(HttpMethod.GET, "/admin/payments", "/admin/payments/**").hasRole("SUPER_ADMIN")
+
 						// Everything else requires JWT
 						.anyRequest().authenticated())
 
