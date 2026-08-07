@@ -5,7 +5,10 @@ import org.springframework.stereotype.Service;
 
 import com.sandbox.dto.AuthResponse;
 import com.sandbox.dto.LoginRequest;
+import com.sandbox.dto.RegisterRequest;
+import com.sandbox.entity.Role;
 import com.sandbox.entity.User;
+import com.sandbox.repository.RoleRepository;
 import com.sandbox.repository.UserRepository;
 import com.sandbox.security.JwtService;
 import com.sandbox.exception.InvalidCredentialsException;
@@ -72,11 +75,15 @@ public class AuthService {
 	 *
 	 * when AuthService is created.
 	 */
-	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+	private final RoleRepository roleRepository;
+
+	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
+			RoleRepository roleRepository) {
 
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
+		this.roleRepository = roleRepository;
 	}
 
 	/*
@@ -153,14 +160,11 @@ public class AuthService {
 			 */
 			throw new AccountInactiveException("User account is inactive");
 		}
-		
-		// Users of an inactive organization cannot log in
-		if (user.getOrganization() != null
-		        && !"ACTIVE".equals(user.getOrganization().getStatus())) {
 
-		    throw new AccountInactiveException(
-		            "Organization account is inactive"
-		    );
+		// Users of an inactive organization cannot log in
+		if (user.getOrganization() != null && !"ACTIVE".equals(user.getOrganization().getStatus())) {
+
+			throw new AccountInactiveException("Organization account is inactive");
 		}
 
 		/*
@@ -207,5 +211,37 @@ public class AuthService {
 				"Bearer",
 
 				user.getId(), user.getName(), user.getEmail(), user.getRole().getName(), organizationId);
+	}
+
+	public AuthResponse register(RegisterRequest request) {
+
+		if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+
+			throw new RuntimeException("Email already registered");
+		}
+
+		Role candidateRole = roleRepository.findByName("CANDIDATE")
+				.orElseThrow(() -> new RuntimeException("CANDIDATE role not found"));
+
+		User user = new User();
+
+		user.setName(request.getName());
+
+		user.setEmail(request.getEmail());
+
+		user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+
+		user.setStatus("ACTIVE");
+
+		user.setRole(candidateRole);
+
+		user.setOrganization(null);
+
+		User savedUser = userRepository.save(user);
+
+		String token = jwtService.generateToken(savedUser);
+
+		return new AuthResponse(token, "Bearer", savedUser.getId(), savedUser.getName(), savedUser.getEmail(),
+				savedUser.getRole().getName(), null);
 	}
 }

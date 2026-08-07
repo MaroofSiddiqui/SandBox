@@ -235,6 +235,10 @@ public class User {
 		updatedAt = LocalDateTime.now();
 	}
 
+	@Column(name = "failed_login_attempts", nullable = false)
+	@Builder.Default
+	private Integer failedLoginAttempts = 0;
+
 	/*
 	 * EMAIL VERIFICATION STATUS
 	 *

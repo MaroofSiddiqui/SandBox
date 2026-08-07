@@ -110,7 +110,7 @@ function Register() {
     setLoading(true);
 
     try {
-      await axiosInstance.post("/api/auth/register", {
+      await axiosInstance.post("/auth/register", {
         name: formData.name.trim(),
         email: formData.email.trim(),
         password: formData.password,

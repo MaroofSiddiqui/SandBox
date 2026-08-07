@@ -69,7 +69,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 					List.of(authority));
 
 			/*
-			 * Keep useful Auth-Service JWT information available to Assessment
+			 * Keep useful Auth-Service JWT information available to 
+
 			 * controllers/services.
 			 */
 			authentication.setDetails(claims);

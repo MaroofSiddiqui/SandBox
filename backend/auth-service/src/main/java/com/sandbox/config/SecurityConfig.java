@@ -53,14 +53,9 @@ public class SecurityConfig {
 // =========================
 // PUBLIC APIs
 // =========================
-.requestMatchers(
-        "/auth/login",
-        "/api/auth/login",
-        "/api/auth/register",
-        "/api/auth/password/**",
-        "/api/auth/email/**",
-        "/error"
-).permitAll()
+						.requestMatchers("/auth/login", "/auth/register", "/api/auth/login", "/api/auth/register",
+								"/api/auth/password/**", "/api/auth/email/**", "/error")
+						.permitAll()
 
 						// =========================
 						// SUBSCRIPTION VIEWING
