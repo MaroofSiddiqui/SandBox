@@ -108,3 +108,37 @@ export const getAllQuestions = async () => {
 
     return response.data;
 };
+
+/*
+ * ============================================================
+ * ASSESSMENT SUBMISSION APIs
+ * ============================================================
+ */
+
+/*
+ * START ASSESSMENT
+ *
+ * POST /assessment-submission/start/{assessmentId}
+ */
+export const startAssessment = async (assessmentId) => {
+
+  const response = await assessmentAxiosInstance.post(
+    `/assessment-submission/start/${assessmentId}`
+  );
+
+  return response.data;
+};
+
+/*
+ * FINISH ASSESSMENT
+ *
+ * POST /assessment-submission/finish/{submissionId}
+ */
+export const finishAssessment = async (submissionId) => {
+
+  const response = await assessmentAxiosInstance.post(
+    `/assessment-submission/finish/${submissionId}`
+  );
+
+  return response.data;
+};

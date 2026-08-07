@@ -93,7 +93,7 @@ public class AiEvaluationController {
 					authorizationHeader);
 
 			SubmissionResponse response = new SubmissionResponse(true, "Code submitted successfully",
-					result.getHiddenTestsPassed(), result.getHiddenTotalTests());
+					result.getHiddenTestsPassed(), result.getHiddenTotalTests(), result.getId());
 
 			return ResponseEntity.ok(response);
 

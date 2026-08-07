@@ -80,6 +80,10 @@ public class SecurityConfig {
 
 						.requestMatchers(HttpMethod.POST, "/assessment-submission/finish/**").hasRole("CANDIDATE")
 
+						.requestMatchers(HttpMethod.POST, "/candidate-answer/coding").hasRole("CANDIDATE")
+
+						.requestMatchers(HttpMethod.POST, "/candidate-answer/mcq").hasRole("CANDIDATE")
+
 						/*
 						 * Anything not explicitly configured must still be authenticated.
 						 */
