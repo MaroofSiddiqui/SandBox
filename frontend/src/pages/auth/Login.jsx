@@ -59,6 +59,8 @@ function Login() {
         navigate("/admin", { replace: true });
       } else if (user.role === "HR") {
         navigate("/hr", { replace: true });
+      } else if (user.role === "CANDIDATE") {
+        navigate("/candidate", { replace: true });
       } else {
         setServerError(
           "Your account does not have access to this application."
@@ -67,7 +69,7 @@ function Login() {
     } catch (err) {
       setServerError(
         err.response?.data?.message ||
-          "Unable to sign in. Please verify your credentials and try again."
+        "Unable to sign in. Please verify your credentials and try again."
       );
     } finally {
       setLoading(false);
@@ -155,9 +157,8 @@ function Login() {
               <label htmlFor="email">Email address</label>
 
               <div
-                className={`input-wrapper ${
-                  errors.email ? "input-error" : ""
-                }`}
+                className={`input-wrapper ${errors.email ? "input-error" : ""
+                  }`}
               >
                 <Mail size={18} />
 
@@ -182,9 +183,8 @@ function Login() {
               <label htmlFor="password">Password</label>
 
               <div
-                className={`input-wrapper ${
-                  errors.password ? "input-error" : ""
-                }`}
+                className={`input-wrapper ${errors.password ? "input-error" : ""
+                  }`}
               >
                 <LockKeyhole size={18} />
 

@@ -13,7 +13,7 @@ export const AuthProvider = ({ children }) => {
 
   // Login through Spring Boot /auth/login
   const login = async (email, password) => {
-    const response = await axiosInstance.post("/api/auth/login", {
+    const response = await axiosInstance.post("/auth/login", {
       email,
       password,
     });

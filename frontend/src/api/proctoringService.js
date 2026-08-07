@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base URL pointing to your Spring Boot Backend
-const API_BASE_URL = 'http://localhost:8080/api/proctoring';
+const API_BASE_URL = 'http://localhost:8083/api/proctoring';
 
 /**
  * Uploads dual video evidence buffers (webcam and screen) along with violation 

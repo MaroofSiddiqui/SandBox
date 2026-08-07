@@ -1,32 +1,59 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
-import Home from "./pages/Home";
-import About from "./pages/About";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import ForgotPassword from "./pages/ForgotPassword";
-import VerifyOtp from "./pages/VerifyOtp";
-import ResetPassword from "./pages/ResetPassword";
-import VerifyEmail from "./pages/VerifyEmail";
-import NotFound from "./pages/NotFound";
-import AccessDenied from "./pages/AccessDenied";
-import CodeEvaluation from "./components/editor/CodeEvaluation";
-import HrDashboard from "./pages/HrDashboard";
-import SuperAdminDashboard from "./pages/SuperAdminDashboard";
-import CandidateDashboard from "./pages/CandidateDashboard";
+// =========================
+// PUBLIC PAGES
+// =========================
+import Home from "./pages/public/Home";
+import About from "./pages/public/About";
+import NotFound from "./pages/public/NotFound";
+import AccessDenied from "./pages/public/AccessDenied";
 
-import AdminLayout from "./layouts/AdminLayout";
-import PaymentMonitoring from "./pages/admin/PaymentMonitoring";
+// =========================
+// AUTH PAGES
+// =========================
+import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import VerifyOtp from "./pages/auth/VerifyOtp";
+import ResetPassword from "./pages/auth/ResetPassword";
+import VerifyEmail from "./pages/auth/VerifyEmail";
 
-import Dashboard from "./pages/admin/Dashboard";
+// =========================
+// CANDIDATE PAGES
+// =========================
+import CandidateDashboard from "./pages/candidate/CandidateDashboard";
+
+// =========================
+// HR PAGES
+// =========================
+import HrDashboard from "./pages/hr/HrDashboard";
 import Candidates from "./pages/Candidates";
-import Organizations from "./pages/admin/Organizations";
+
+// =========================
+// SUPER ADMIN PAGES
+// =========================
+import Dashboard from "./pages/admin/Dashboard";
 import HrManagement from "./pages/admin/HrManagement";
-
+import Organizations from "./pages/admin/Organizations";
+import PaymentMonitoring from "./pages/admin/PaymentMonitoring";
 import SubscriptionManagement from "./pages/admin/SubscriptionManagement";
-import SubscriptionPlans from "./pages/SubscriptionPlans";
+import SuperAdminDashboard from "./pages/admin/SuperAdminDashboard";
 
-import ProtectedRoute from "./components/ProtectedRoute";
+// =========================
+// OTHER PAGES / COMPONENTS
+// =========================
+import SubscriptionPlans from "./pages/SubscriptionPlans";
+import CodeEvaluation from "./components/editor/CodeEvaluation";
+
+// =========================
+// LAYOUTS
+// =========================
+import AdminLayout from "./layouts/AdminLayout";
+
+// =========================
+// ROUTE SECURITY
+// =========================
+import ProtectedRoute from "./components/common/ProtectedRoute";
 
 function App() {
   return (
@@ -35,6 +62,16 @@ function App() {
       {/* =========================
           PUBLIC ROUTES
          ========================= */}
+
+      <Route
+        path="/"
+        element={<Home />}
+      />
+
+      <Route
+        path="/about"
+        element={<About />}
+      />
 
       <Route
         path="/login"
@@ -69,11 +106,6 @@ function App() {
       <Route
         path="/access-denied"
         element={<AccessDenied />}
-      />
-
-      <Route
-        path="/about"
-        element={<About />}
       />
 
 
@@ -170,30 +202,23 @@ function App() {
 
 
       {/* =========================
-          DEFAULT ROUTE
+          CODE EVALUATION
+          TEMPORARY TEST ROUTE
          ========================= */}
 
       <Route
-        path="/"
-        element={<Home />}
+        path="/code-evaluation"
+        element={<CodeEvaluation />}
       />
 
 
       {/* =========================
-          404 - UNKNOWN ROUTES
+          404
          ========================= */}
 
       <Route
         path="*"
         element={<NotFound />}
-      />
-
-      {/* =========================
-          EVALUATION ROUTE (Testing for now)
-         ========================= */}
-      <Route
-        path="/code-evaluation"
-        element={<CodeEvaluation />}
       />
 
     </Routes>

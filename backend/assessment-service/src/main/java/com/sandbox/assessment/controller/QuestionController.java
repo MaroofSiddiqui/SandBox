@@ -12,20 +12,26 @@ import java.util.List;
 @RequestMapping("/question")
 public class QuestionController {
 
-    private final QuestionService questionService;
+	private final QuestionService questionService;
 
-    public QuestionController(QuestionService questionService) {
-        this.questionService = questionService;
-    }
+	public QuestionController(QuestionService questionService) {
+		this.questionService = questionService;
+	}
 
-    @PostMapping("/create")
-    public ResponseEntity<QuestionDto> createQuestion(@RequestBody QuestionDto questionDto) {
-        QuestionDto created = questionService.createQuestion(questionDto);
-        return new ResponseEntity<>(created, HttpStatus.CREATED);
-    }
+	@PostMapping("/create")
+	public ResponseEntity<QuestionDto> createQuestion(@RequestBody QuestionDto questionDto) {
+		QuestionDto created = questionService.createQuestion(questionDto);
+		return new ResponseEntity<>(created, HttpStatus.CREATED);
+	}
 
-    @GetMapping("/all")
-    public ResponseEntity<List<QuestionDto>> getAllQuestions() {
-        return ResponseEntity.ok(questionService.getAllQuestions());
-    }
+	@GetMapping("/all")
+	public ResponseEntity<List<QuestionDto>> getAllQuestions() {
+		return ResponseEntity.ok(questionService.getAllQuestions());
+	}
+
+	@GetMapping("/{id}")
+	public ResponseEntity<QuestionDto> getQuestionById(@PathVariable Long id) {
+
+		return ResponseEntity.ok(questionService.getQuestionById(id));
+	}
 }

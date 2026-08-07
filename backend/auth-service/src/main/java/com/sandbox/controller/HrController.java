@@ -8,7 +8,7 @@ import com.sandbox.dto.CreateHrRequest;
 import com.sandbox.dto.UserResponse;
 import com.sandbox.entity.User;
 import com.sandbox.service.HrService;
-
+import java.util.List;
 import jakarta.validation.Valid;
 
 /*
@@ -40,131 +40,114 @@ import jakarta.validation.Valid;
 @RequestMapping("/hrs")
 public class HrController {
 
-    /*
-     * HrService contains the actual business logic
-     * required for creating an HR.
-     *
-     * For example:
-     * - Checking duplicate email
-     * - Finding the organization
-     * - Finding the HR role
-     * - Encoding the password
-     * - Saving the HR into the database
-     */
-    private final HrService hrService;
+	/*
+	 * HrService contains the actual business logic required for creating an HR.
+	 *
+	 * For example: - Checking duplicate email - Finding the organization - Finding
+	 * the HR role - Encoding the password - Saving the HR into the database
+	 */
+	private final HrService hrService;
 
+	/*
+	 * Constructor Dependency Injection.
+	 *
+	 * Spring automatically provides the HrService when this controller is created.
+	 */
+	public HrController(HrService hrService) {
+		this.hrService = hrService;
+	}
 
-    /*
-     * Constructor Dependency Injection.
-     *
-     * Spring automatically provides the HrService
-     * when this controller is created.
-     */
-    public HrController(HrService hrService) {
-        this.hrService = hrService;
-    }
+	/*
+	 * CREATE HR ENDPOINT
+	 *
+	 * URL: POST /hrs
+	 *
+	 * Example request:
+	 *
+	 * { "name": "Rahul Sharma", "email": "rahul.hr@acme.com", "password":
+	 * "Hr@12345", "organizationId": 2 }
+	 *
+	 * Only SUPER_ADMIN can access this endpoint because SecurityConfig contains:
+	 *
+	 * .requestMatchers("/organizations/**", "/hrs/**") .hasRole("SUPER_ADMIN")
+	 */
+	@PostMapping
+	public ResponseEntity<UserResponse> createHr(
 
+			/*
+			 * @RequestBody: Converts incoming JSON into a CreateHrRequest object.
+			 *
+			 * @Valid: Executes validation annotations defined inside CreateHrRequest, such
+			 * as:
+			 *
+			 * @NotBlank
+			 * 
+			 * @Email
+			 * 
+			 * @Size
+			 * 
+			 * @NotNull
+			 */
+			@Valid @RequestBody CreateHrRequest request) {
 
-    /*
-     * CREATE HR ENDPOINT
-     *
-     * URL:
-     * POST /hrs
-     *
-     * Example request:
-     *
-     * {
-     *     "name": "Rahul Sharma",
-     *     "email": "rahul.hr@acme.com",
-     *     "password": "Hr@12345",
-     *     "organizationId": 2
-     * }
-     *
-     * Only SUPER_ADMIN can access this endpoint because
-     * SecurityConfig contains:
-     *
-     * .requestMatchers("/organizations/**", "/hrs/**")
-     * .hasRole("SUPER_ADMIN")
-     */
-    @PostMapping
-    public ResponseEntity<UserResponse> createHr(
+		/*
+		 * Delegate the actual HR creation logic to HrService.
+		 *
+		 * HrService will:
+		 *
+		 * 1. Check whether email already exists 2. Find the requested organization 3.
+		 * Find the HR role 4. Hash the password 5. Create the User 6. Save it in the
+		 * database
+		 *
+		 * The returned User represents the newly created HR.
+		 */
+		User hr = hrService.createHr(request);
 
-            /*
-             * @RequestBody:
-             * Converts incoming JSON into a CreateHrRequest object.
-             *
-             * @Valid:
-             * Executes validation annotations defined inside
-             * CreateHrRequest, such as:
-             *
-             * @NotBlank
-             * @Email
-             * @Size
-             * @NotNull
-             */
-            @Valid @RequestBody CreateHrRequest request) {
+		/*
+		 * Convert the User entity into UserResponse DTO.
+		 *
+		 * We should NOT return the complete User entity because User contains sensitive
+		 * information such as:
+		 *
+		 * passwordHash
+		 *
+		 * UserResponse exposes only safe information.
+		 */
+		UserResponse response = new UserResponse(
 
-        /*
-         * Delegate the actual HR creation logic to HrService.
-         *
-         * HrService will:
-         *
-         * 1. Check whether email already exists
-         * 2. Find the requested organization
-         * 3. Find the HR role
-         * 4. Hash the password
-         * 5. Create the User
-         * 6. Save it in the database
-         *
-         * The returned User represents the newly created HR.
-         */
-        User hr = hrService.createHr(request);
+				// Database-generated user ID.
+				hr.getId(),
 
+				// HR's name.
+				hr.getName(),
 
-        /*
-         * Convert the User entity into UserResponse DTO.
-         *
-         * We should NOT return the complete User entity
-         * because User contains sensitive information such as:
-         *
-         * passwordHash
-         *
-         * UserResponse exposes only safe information.
-         */
-        UserResponse response = new UserResponse(
+				// HR's email.
+				hr.getEmail(),
 
-                // Database-generated user ID.
-                hr.getId(),
+				// Convert Role entity into simple role name: "HR".
+				hr.getRole().getName(),
 
-                // HR's name.
-                hr.getName(),
+				// Return only the organization's ID.
+				hr.getOrganization().getId(),
 
-                // HR's email.
-                hr.getEmail(),
+				// Example: ACTIVE.
+				hr.getStatus(),
 
-                // Convert Role entity into simple role name: "HR".
-                hr.getRole().getName(),
+				// Date/time when the HR account was created.
+				hr.getCreatedAt());
 
-                // Return only the organization's ID.
-                hr.getOrganization().getId(),
+		/*
+		 * HTTP 201 Created is appropriate because a new HR resource was successfully
+		 * created.
+		 *
+		 * Response body contains UserResponse, not the User entity.
+		 */
+		return ResponseEntity.status(HttpStatus.CREATED).body(response);
+	}
 
-                // Example: ACTIVE.
-                hr.getStatus(),
+	@GetMapping
+	public ResponseEntity<List<UserResponse>> getAllHrs() {
 
-                // Date/time when the HR account was created.
-                hr.getCreatedAt()
-        );
-
-
-        /*
-         * HTTP 201 Created is appropriate because
-         * a new HR resource was successfully created.
-         *
-         * Response body contains UserResponse,
-         * not the User entity.
-         */
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
-    }
+		return ResponseEntity.ok(hrService.getAllHrs());
+	}
 }
