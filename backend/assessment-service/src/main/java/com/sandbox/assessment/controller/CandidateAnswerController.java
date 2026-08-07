@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import com.sandbox.assessment.dto.CodingAnswerRequest;
 import com.sandbox.assessment.entity.CandidateAnswer;
 import com.sandbox.assessment.service.CandidateAnswerService;
+import com.sandbox.assessment.dto.McqAnswerRequest;
 
 import io.jsonwebtoken.Claims;
 
@@ -14,49 +15,58 @@ import io.jsonwebtoken.Claims;
 @RequestMapping("/candidate-answer")
 public class CandidateAnswerController {
 
-    private final CandidateAnswerService candidateAnswerService;
+	private final CandidateAnswerService candidateAnswerService;
 
-    public CandidateAnswerController(
-            CandidateAnswerService candidateAnswerService) {
+	public CandidateAnswerController(CandidateAnswerService candidateAnswerService) {
 
-        this.candidateAnswerService = candidateAnswerService;
-    }
+		this.candidateAnswerService = candidateAnswerService;
+	}
 
-    @PostMapping("/coding")
-    public ResponseEntity<?> saveCodingAnswer(
-            @RequestBody CodingAnswerRequest request,
-            Authentication authentication) {
+	@PostMapping("/coding")
+	public ResponseEntity<?> saveCodingAnswer(@RequestBody CodingAnswerRequest request, Authentication authentication) {
 
-        Claims claims = (Claims) authentication.getDetails();
+		Claims claims = (Claims) authentication.getDetails();
 
-        Number userId = claims.get("userId", Number.class);
+		Number userId = claims.get("userId", Number.class);
 
-        if (userId == null) {
-            throw new RuntimeException(
-                    "User ID not found in authentication token");
-        }
+		if (userId == null) {
+			throw new RuntimeException("User ID not found in authentication token");
+		}
 
-        Long candidateId = userId.longValue();
+		Long candidateId = userId.longValue();
 
-        CandidateAnswer answer =
-                candidateAnswerService.saveCodingEvaluation(
-                        request.getSubmissionId(),
-                        request.getQuestionId(),
-                        request.getCodingEvaluationId(),
-                        candidateId);
+		CandidateAnswer answer = candidateAnswerService.saveCodingEvaluation(request.getSubmissionId(),
+				request.getQuestionId(), request.getCodingEvaluationId(), candidateId);
 
-        return ResponseEntity.ok(
-                new CodingAnswerResponse(
-                        answer.getId(),
-                        answer.getSubmission().getId(),
-                        answer.getQuestion().getId(),
-                        answer.getCodingEvaluationId()));
-    }
+		return ResponseEntity.ok(new CodingAnswerResponse(answer.getId(), answer.getSubmission().getId(),
+				answer.getQuestion().getId(), answer.getCodingEvaluationId()));
+	}
 
-    public record CodingAnswerResponse(
-            Long answerId,
-            Long submissionId,
-            Long questionId,
-            String codingEvaluationId) {
-    }
+	@PostMapping("/mcq")
+	public ResponseEntity<?> saveMcqAnswer(@RequestBody McqAnswerRequest request, Authentication authentication) {
+
+		Claims claims = (Claims) authentication.getDetails();
+
+		Number userId = claims.get("userId", Number.class);
+
+		if (userId == null) {
+			throw new RuntimeException("User ID not found in authentication token");
+		}
+
+		Long candidateId = userId.longValue();
+
+		CandidateAnswer answer = candidateAnswerService.saveMcqAnswer(request.getSubmissionId(),
+				request.getQuestionId(), request.getSelectedOptionId(), candidateId);
+
+		return ResponseEntity
+				.ok(new McqAnswerResponse(answer.getId(), answer.getSubmission().getId(), answer.getQuestion().getId(),
+						answer.getSelectedOption().getId(), answer.getCorrect(), answer.getAwardedMarks()));
+	}
+
+	public record CodingAnswerResponse(Long answerId, Long submissionId, Long questionId, String codingEvaluationId) {
+	}
+
+	public record McqAnswerResponse(Long answerId, Long submissionId, Long questionId, Long selectedOptionId,
+			Boolean correct, Double awardedMarks) {
+	}
 }

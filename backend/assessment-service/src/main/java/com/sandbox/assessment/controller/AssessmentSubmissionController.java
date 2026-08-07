@@ -45,19 +45,30 @@ public class AssessmentSubmissionController {
 	}
 
 	@PostMapping("/finish/{submissionId}")
-	public ResponseEntity<FinishAssessmentResponse> finishAssessment(@PathVariable Long submissionId,
-			Authentication authentication) {
+	public ResponseEntity<FinishAssessmentResponse> finishAssessment(
+	        @PathVariable Long submissionId,
+	        @RequestHeader("Authorization") String authorizationHeader,
+	        Authentication authentication) {
 
-		Claims claims = (Claims) authentication.getDetails();
+	    Claims claims = (Claims) authentication.getDetails();
 
-		Number userId = claims.get("userId", Number.class);
+	    Number userId = claims.get("userId", Number.class);
 
-		if (userId == null) {
-			throw new RuntimeException("User ID not found in authentication token");
-		}
+	    if (userId == null) {
+	        throw new RuntimeException(
+	                "User ID not found in authentication token"
+	        );
+	    }
 
-		Long candidateId = userId.longValue();
+	    Long candidateId = userId.longValue();
 
-		return ResponseEntity.ok(submissionService.finishAssessment(submissionId, candidateId));
+	    return ResponseEntity.ok(
+	            submissionService.finishAssessment(
+	                    submissionId,
+	                    candidateId,
+	                    authorizationHeader
+	            )
+	    );
 	}
+	
 }

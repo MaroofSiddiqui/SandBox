@@ -9,18 +9,28 @@ import com.sandbox.assessment.repository.AssessmentRepository;
 import com.sandbox.assessment.repository.AssessmentSubmissionRepository;
 import java.time.LocalDateTime;
 import com.sandbox.assessment.dto.FinishAssessmentResponse;
+import java.util.List;
+
+import com.sandbox.assessment.client.AiEvaluationClient;
+import com.sandbox.assessment.entity.CandidateAnswer;
+import com.sandbox.assessment.repository.CandidateAnswerRepository;
 
 @Service
 public class AssessmentSubmissionService {
 
 	private final AssessmentRepository assessmentRepository;
 	private final AssessmentSubmissionRepository submissionRepository;
+	private final CandidateAnswerRepository candidateAnswerRepository;
+	private final AiEvaluationClient aiEvaluationClient;
 
 	public AssessmentSubmissionService(AssessmentRepository assessmentRepository,
-			AssessmentSubmissionRepository submissionRepository) {
+			AssessmentSubmissionRepository submissionRepository, CandidateAnswerRepository candidateAnswerRepository,
+			AiEvaluationClient aiEvaluationClient) {
 
 		this.assessmentRepository = assessmentRepository;
 		this.submissionRepository = submissionRepository;
+		this.candidateAnswerRepository = candidateAnswerRepository;
+		this.aiEvaluationClient = aiEvaluationClient;
 	}
 
 	public StartAssessmentResponse startAssessment(Long assessmentId, Long candidateId) {
@@ -44,7 +54,7 @@ public class AssessmentSubmissionService {
 				saved.getStatus().name(), saved.getStartedAt());
 	}
 
-	public FinishAssessmentResponse finishAssessment(Long submissionId, Long candidateId) {
+	public FinishAssessmentResponse finishAssessment(Long submissionId, Long candidateId, String authorizationHeader) {
 
 		AssessmentSubmission submission = submissionRepository.findByIdAndCandidateId(submissionId, candidateId)
 				.orElseThrow(() -> new RuntimeException("Assessment submission not found"));
@@ -54,9 +64,66 @@ public class AssessmentSubmissionService {
 			throw new RuntimeException("Assessment has already been submitted.");
 		}
 
+		/*
+		 * Get all answers saved by this candidate for this particular submission.
+		 */
+		List<CandidateAnswer> answers = candidateAnswerRepository.findBySubmissionId(submissionId);
+
+		double totalScore = 0.0;
+
+		for (CandidateAnswer answer : answers) {
+
+			/*
+			 * ============================ MCQ ============================
+			 *
+			 * MCQ marks were already calculated when the candidate selected an option.
+			 */
+			if (answer.getSelectedOption() != null) {
+
+				if (answer.getAwardedMarks() != null) {
+					totalScore += answer.getAwardedMarks();
+				}
+
+				continue;
+			}
+
+			/*
+			 * ============================ CODING ============================
+			 *
+			 * 8083 gives us a percentage score.
+			 *
+			 * Example: Question marks = 10 Evaluation score = 80%
+			 *
+			 * Awarded marks = 8
+			 */
+			if (answer.getCodingEvaluationId() != null && !answer.getCodingEvaluationId().isBlank()) {
+
+				Double evaluationPercentage = aiEvaluationClient.getEvaluationScore(answer.getCodingEvaluationId(),
+						authorizationHeader);
+
+				double questionMarks = answer.getQuestion().getMarks();
+
+				double awardedMarks = (evaluationPercentage / 100.0) * questionMarks;
+
+				/*
+				 * Save the converted coding marks in MySQL too.
+				 */
+				answer.setAwardedMarks(awardedMarks);
+
+				candidateAnswerRepository.save(answer);
+
+				totalScore += awardedMarks;
+			}
+		}
+
+		/*
+		 * Assessment is now fully evaluated.
+		 */
+		submission.setScore(totalScore);
+
 		submission.setSubmittedAt(LocalDateTime.now());
 
-		submission.setStatus(AssessmentSubmission.SubmissionStatus.SUBMITTED);
+		submission.setStatus(AssessmentSubmission.SubmissionStatus.EVALUATED);
 
 		AssessmentSubmission saved = submissionRepository.save(submission);
 

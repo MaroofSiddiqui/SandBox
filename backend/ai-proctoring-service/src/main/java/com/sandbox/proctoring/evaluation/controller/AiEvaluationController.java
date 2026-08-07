@@ -12,6 +12,7 @@ import com.sandbox.proctoring.evaluation.service.Judge0Service;
 import com.sandbox.proctoring.evaluation.service.GeminiService;
 import com.sandbox.proctoring.evaluation.dto.SubmissionResponse;
 import org.springframework.security.core.Authentication;
+import com.sandbox.proctoring.evaluation.dto.EvaluationScoreResponse;
 import io.jsonwebtoken.Claims;
 
 import java.util.List;
@@ -101,5 +102,15 @@ public class AiEvaluationController {
 
 			return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
 		}
+	}
+
+	@GetMapping("/{id}/score")
+	public ResponseEntity<EvaluationScoreResponse> getEvaluationScore(@PathVariable String id) {
+
+		AiEvaluationResult evaluation = evaluationService.getEvaluationById(id)
+				.orElseThrow(() -> new RuntimeException("Evaluation not found with ID: " + id));
+
+		return ResponseEntity.ok(new EvaluationScoreResponse(evaluation.getId(), evaluation.getStudentId(),
+				evaluation.getSubmissionId(), evaluation.getScore()));
 	}
 }
