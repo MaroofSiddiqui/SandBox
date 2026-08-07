@@ -105,12 +105,61 @@ public class AiEvaluationController {
 	}
 
 	@GetMapping("/{id}/score")
-	public ResponseEntity<EvaluationScoreResponse> getEvaluationScore(@PathVariable String id) {
+	public ResponseEntity<?> getEvaluationScore(@PathVariable String id, Authentication authentication) {
 
-		AiEvaluationResult evaluation = evaluationService.getEvaluationById(id)
-				.orElseThrow(() -> new RuntimeException("Evaluation not found with ID: " + id));
+		try {
 
-		return ResponseEntity.ok(new EvaluationScoreResponse(evaluation.getId(), evaluation.getStudentId(),
-				evaluation.getSubmissionId(), evaluation.getScore()));
+			AiEvaluationResult evaluation = evaluationService.getEvaluationById(id)
+					.orElseThrow(() -> new RuntimeException("Evaluation not found with ID: " + id));
+
+			if (authentication == null || authentication.getDetails() == null) {
+
+				return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+			}
+
+			Claims claims = (Claims) authentication.getDetails();
+
+			Number userId = claims.get("userId", Number.class);
+
+			String role = claims.get("role", String.class);
+
+			if (userId == null || role == null) {
+
+				return ResponseEntity.status(401).body(Map.of("error", "Invalid authentication token"));
+			}
+
+			String authenticatedUserId = String.valueOf(userId.longValue());
+
+			/*
+			 * HR can view candidate evaluation scores.
+			 */
+			if ("HR".equals(role)) {
+
+				return ResponseEntity.ok(new EvaluationScoreResponse(evaluation.getId(), evaluation.getStudentId(),
+						evaluation.getSubmissionId(), evaluation.getScore()));
+			}
+
+			/*
+			 * Candidate can view only their own score.
+			 */
+			if ("CANDIDATE".equals(role)) {
+
+				if (!authenticatedUserId.equals(evaluation.getStudentId())) {
+
+					return ResponseEntity.status(403)
+							.body(Map.of("error", "You are not authorized to access this evaluation"));
+				}
+
+				return ResponseEntity.ok(new EvaluationScoreResponse(evaluation.getId(), evaluation.getStudentId(),
+						evaluation.getSubmissionId(), evaluation.getScore()));
+			}
+
+			return ResponseEntity.status(403).body(Map.of("error", "Access denied"));
+
+		} catch (Exception e) {
+
+			return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
+		}
 	}
+
 }

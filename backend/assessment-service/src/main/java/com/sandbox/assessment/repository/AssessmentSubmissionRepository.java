@@ -10,17 +10,14 @@ import com.sandbox.assessment.entity.AssessmentSubmission;
 import com.sandbox.assessment.entity.AssessmentSubmission.SubmissionStatus;
 
 @Repository
-public interface AssessmentSubmissionRepository
-        extends JpaRepository<AssessmentSubmission, Long> {
+public interface AssessmentSubmissionRepository extends JpaRepository<AssessmentSubmission, Long> {
 
-    List<AssessmentSubmission> findByCandidateId(Long candidateId);
+	List<AssessmentSubmission> findByCandidateId(Long candidateId);
 
-    Optional<AssessmentSubmission>
-        findByIdAndCandidateId(Long id, Long candidateId);
+	Optional<AssessmentSubmission> findByIdAndCandidateId(Long id, Long candidateId);
 
-    List<AssessmentSubmission>
-        findByCandidateIdAndStatus(
-            Long candidateId,
-            SubmissionStatus status
-        );
+	List<AssessmentSubmission> findByCandidateIdAndStatus(Long candidateId, SubmissionStatus status);
+
+	boolean existsByAssessmentIdAndCandidateIdAndStatus(Long assessmentId, Long candidateId,
+			AssessmentSubmission.SubmissionStatus status);
 }

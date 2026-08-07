@@ -114,9 +114,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
              * Temporarily print the exception while
              * integrating the microservices.
              */
-            System.out.println(
-                    "JWT VALIDATION FAILED IN AI-PROCTORING-SERVICE"
-            );
 
             exception.printStackTrace();
 

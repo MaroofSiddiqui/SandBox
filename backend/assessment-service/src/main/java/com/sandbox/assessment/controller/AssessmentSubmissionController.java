@@ -6,7 +6,9 @@ import org.springframework.web.bind.annotation.*;
 
 import com.sandbox.assessment.dto.FinishAssessmentResponse;
 import com.sandbox.assessment.dto.StartAssessmentResponse;
+import com.sandbox.assessment.entity.AssessmentSubmission;
 import com.sandbox.assessment.service.AssessmentSubmissionService;
+import com.sandbox.assessment.repository.AssessmentSubmissionRepository;
 
 import io.jsonwebtoken.Claims;
 
@@ -15,10 +17,13 @@ import io.jsonwebtoken.Claims;
 public class AssessmentSubmissionController {
 
 	private final AssessmentSubmissionService submissionService;
+	
+	private final AssessmentSubmissionRepository submissionRepository;
 
-	public AssessmentSubmissionController(AssessmentSubmissionService submissionService) {
+	public AssessmentSubmissionController(AssessmentSubmissionService submissionService, AssessmentSubmissionRepository submissionRepository) {
 
 		this.submissionService = submissionService;
+		this.submissionRepository = submissionRepository;
 	}
 
 	@PostMapping("/start/{assessmentId}")
@@ -70,5 +75,34 @@ public class AssessmentSubmissionController {
 	            )
 	    );
 	}
+	
+	@GetMapping("/validate/{assessmentId}/{candidateId}")
+	public ResponseEntity<Boolean> validateCandidateSubmission(
+	        @PathVariable Long assessmentId,
+	        @PathVariable Long candidateId) {
+
+	    boolean exists =
+	            submissionService
+	                .existsActiveSubmission(
+	                        assessmentId,
+	                        candidateId
+	                );
+
+	    return ResponseEntity.ok(exists);
+	}
+	
+	public boolean existsActiveSubmission(
+	        Long assessmentId,
+	        Long candidateId) {
+
+	    return submissionRepository
+	            .existsByAssessmentIdAndCandidateIdAndStatus(
+	                    assessmentId,
+	                    candidateId,
+	                    AssessmentSubmission.SubmissionStatus.IN_PROGRESS
+	            );
+	}
+	
+	
 	
 }

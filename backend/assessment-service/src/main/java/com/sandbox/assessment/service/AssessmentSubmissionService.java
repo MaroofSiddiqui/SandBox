@@ -130,4 +130,10 @@ public class AssessmentSubmissionService {
 		return new FinishAssessmentResponse(saved.getId(), saved.getAssessment().getId(), saved.getCandidateId(),
 				saved.getStatus().name(), saved.getScore(), saved.getSubmittedAt());
 	}
+
+	public boolean existsActiveSubmission(Long assessmentId, Long candidateId) {
+
+		return submissionRepository.existsByAssessmentIdAndCandidateIdAndStatus(assessmentId, candidateId,
+				AssessmentSubmission.SubmissionStatus.IN_PROGRESS);
+	}
 }

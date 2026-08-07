@@ -29,10 +29,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			throws ServletException, IOException {
 
 		String authorizationHeader = request.getHeader("Authorization");
-		System.out.println("========== JWT FILTER ==========");
-		System.out.println("REQUEST: " + request.getMethod() + " " + request.getRequestURI());
-		System.out.println("AUTH HEADER: " + authorizationHeader);
-
 		/*
 		 * No JWT supplied.
 		 *
@@ -55,11 +51,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			 * - JWT signature - token format - expiration
 			 */
 			Claims claims = jwtService.extractAllClaims(token);
-			
-			System.out.println("JWT PARSED SUCCESSFULLY");
-			System.out.println("SUBJECT: " + claims.getSubject());
-			System.out.println("ROLE: " + claims.get("role"));
-			System.out.println("USER ID: " + claims.get("userId"));
 
 			String email = claims.getSubject();
 
@@ -85,13 +76,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 			SecurityContextHolder.getContext().setAuthentication(authentication);
 			
-			System.out.println("AUTHENTICATION SET: "
-			        + SecurityContextHolder.getContext().getAuthentication());
-			System.out.println("===============================");
-
 		} catch (Exception exception) {
 
-			System.out.println("JWT VALIDATION FAILED");
 			exception.printStackTrace();
 
 			SecurityContextHolder.clearContext();

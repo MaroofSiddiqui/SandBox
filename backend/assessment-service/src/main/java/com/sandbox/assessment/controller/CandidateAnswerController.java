@@ -5,11 +5,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import com.sandbox.assessment.dto.CodingAnswerRequest;
+import com.sandbox.assessment.dto.McqAnswerRequest;
 import com.sandbox.assessment.entity.CandidateAnswer;
 import com.sandbox.assessment.service.CandidateAnswerService;
-import com.sandbox.assessment.dto.McqAnswerRequest;
 
 import io.jsonwebtoken.Claims;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/candidate-answer")
@@ -25,42 +27,72 @@ public class CandidateAnswerController {
 	@PostMapping("/coding")
 	public ResponseEntity<?> saveCodingAnswer(@RequestBody CodingAnswerRequest request, Authentication authentication) {
 
-		Claims claims = (Claims) authentication.getDetails();
+		try {
 
-		Number userId = claims.get("userId", Number.class);
+			if (authentication == null || authentication.getDetails() == null) {
 
-		if (userId == null) {
-			throw new RuntimeException("User ID not found in authentication token");
+				return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+			}
+
+			Claims claims = (Claims) authentication.getDetails();
+
+			Number userId = claims.get("userId", Number.class);
+
+			if (userId == null) {
+
+				return ResponseEntity.status(401).body(Map.of("error", "User ID missing in JWT"));
+			}
+
+			Long candidateId = userId.longValue();
+
+			CandidateAnswer answer = candidateAnswerService.saveCodingEvaluation(request.getSubmissionId(),
+					request.getQuestionId(), request.getCodingEvaluationId(), candidateId);
+
+			return ResponseEntity.ok(new CodingAnswerResponse(answer.getId(), answer.getSubmission().getId(),
+					answer.getQuestion().getId(), answer.getCodingEvaluationId()));
+
+		} catch (Exception e) {
+
+			e.printStackTrace();
+
+			return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
 		}
-
-		Long candidateId = userId.longValue();
-
-		CandidateAnswer answer = candidateAnswerService.saveCodingEvaluation(request.getSubmissionId(),
-				request.getQuestionId(), request.getCodingEvaluationId(), candidateId);
-
-		return ResponseEntity.ok(new CodingAnswerResponse(answer.getId(), answer.getSubmission().getId(),
-				answer.getQuestion().getId(), answer.getCodingEvaluationId()));
 	}
 
 	@PostMapping("/mcq")
 	public ResponseEntity<?> saveMcqAnswer(@RequestBody McqAnswerRequest request, Authentication authentication) {
 
-		Claims claims = (Claims) authentication.getDetails();
+		try {
 
-		Number userId = claims.get("userId", Number.class);
+			if (authentication == null || authentication.getDetails() == null) {
 
-		if (userId == null) {
-			throw new RuntimeException("User ID not found in authentication token");
+				return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+			}
+
+			Claims claims = (Claims) authentication.getDetails();
+
+			Number userId = claims.get("userId", Number.class);
+
+			if (userId == null) {
+
+				return ResponseEntity.status(401).body(Map.of("error", "User ID missing in JWT"));
+			}
+
+			Long candidateId = userId.longValue();
+
+			CandidateAnswer answer = candidateAnswerService.saveMcqAnswer(request.getSubmissionId(),
+					request.getQuestionId(), request.getSelectedOptionId(), candidateId);
+
+			return ResponseEntity.ok(
+					new McqAnswerResponse(answer.getId(), answer.getSubmission().getId(), answer.getQuestion().getId(),
+							answer.getSelectedOption().getId(), answer.getCorrect(), answer.getAwardedMarks()));
+
+		} catch (Exception e) {
+
+			e.printStackTrace();
+
+			return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
 		}
-
-		Long candidateId = userId.longValue();
-
-		CandidateAnswer answer = candidateAnswerService.saveMcqAnswer(request.getSubmissionId(),
-				request.getQuestionId(), request.getSelectedOptionId(), candidateId);
-
-		return ResponseEntity
-				.ok(new McqAnswerResponse(answer.getId(), answer.getSubmission().getId(), answer.getQuestion().getId(),
-						answer.getSelectedOption().getId(), answer.getCorrect(), answer.getAwardedMarks()));
 	}
 
 	public record CodingAnswerResponse(Long answerId, Long submissionId, Long questionId, String codingEvaluationId) {
@@ -69,4 +101,5 @@ public class CandidateAnswerController {
 	public record McqAnswerResponse(Long answerId, Long submissionId, Long questionId, Long selectedOptionId,
 			Boolean correct, Double awardedMarks) {
 	}
+
 }
