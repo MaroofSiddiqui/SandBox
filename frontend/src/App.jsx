@@ -11,85 +11,46 @@ import VerifyEmail from "./pages/VerifyEmail";
 import NotFound from "./pages/NotFound";
 import AccessDenied from "./pages/AccessDenied";
 import CodeEvaluation from "./components/editor/CodeEvaluation";
+
+import CandidateDashboard from "./pages/CandidateDashboard";
+import ExaminationView from "./pages/ExaminationView";
+import ResultView from "./pages/ResultView";
+
 import HrDashboard from "./pages/HrDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
-import CandidateDashboard from "./pages/CandidateDashboard";
-
 import AdminLayout from "./layouts/AdminLayout";
-
 import Dashboard from "./pages/admin/Dashboard";
 import Organizations from "./pages/admin/Organizations";
 import HrManagement from "./pages/admin/HrManagement";
-
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
     <Routes>
-
       {/* =========================
           PUBLIC ROUTES
          ========================= */}
-
-      <Route
-        path="/login"
-        element={<Login />}
-      />
-
-      <Route
-        path="/register"
-        element={<Register />}
-      />
-
-      <Route
-        path="/forgot-password"
-        element={<ForgotPassword />}
-      />
-
-      <Route
-        path="/verify-otp"
-        element={<VerifyOtp />}
-      />
-
-      <Route
-        path="/reset-password"
-        element={<ResetPassword />}
-      />
-
-      <Route
-        path="/verify-email"
-        element={<VerifyEmail />}
-      />
-      
-      <Route
-        path="/access-denied"
-        element={<AccessDenied />}
-      />
-
-      <Route
-        path="/about"
-        element={<About />}
-      />
-
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/verify-otp" element={<VerifyOtp />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/access-denied" element={<AccessDenied />} />
+      <Route path="/about" element={<About />} />
 
       {/* =========================
-          CANDIDATE ROUTES
+          MEMBER 4: CANDIDATE & EXAM ROUTES
          ========================= */}
-
-      <Route
-        path="/candidate"
-        element={
-          <ProtectedRoute allowedRoles={["CANDIDATE"]}>
-            <CandidateDashboard />
-          </ProtectedRoute>
-        }
-      />
-
+      <Route path="/candidate" element={<CandidateDashboard />} />
+      <Route path="/dashboard" element={<CandidateDashboard />} />
+      <Route path="/exam/:assignmentId" element={<ExaminationView />} />
+      <Route path="/result/:assignmentId" element={<ResultView />} />
 
       {/* =========================
           HR ROUTES
          ========================= */}
-
       <Route
         path="/hr"
         element={
@@ -99,70 +60,32 @@ function App() {
         }
       />
 
-
       {/* =========================
           SUPER ADMIN ROUTES
          ========================= */}
-
       <Route
-  path="/admin"
-  element={
-    <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
-      <AdminLayout />
-    </ProtectedRoute>
-  }
->
-
-  <Route
-    index
-    element={<Navigate to="dashboard" replace />}
-  />
-
-  <Route
-    path="dashboard"
-    element={<Dashboard />}
-  />
-
-  <Route
-    path="organizations"
-    element={<Organizations />}
-  />
-
-  <Route
-    path="hrs"
-    element={<HrManagement />}
-  />
-
-    </Route>
-
+        path="/admin"
+        element={
+          <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="organizations" element={<Organizations />} />
+        <Route path="hrs" element={<HrManagement />} />
+      </Route>
 
       {/* =========================
-          DEFAULT ROUTE
+          TESTING / EVALUATION ROUTE
          ========================= */}
-
-      <Route
-        path="/"
-        element={<Home />}
-      />
-
+      <Route path="/code-evaluation" element={<CodeEvaluation />} />
 
       {/* =========================
           404 - UNKNOWN ROUTES
          ========================= */}
-
-      <Route
-        path="*"
-        element={<NotFound />}
-      />
-
-      {/* =========================
-          EVALUATION ROUTE (Testing for now)
-         ========================= */}
-      <Route
-        path="/code-evaluation"
-        element={<CodeEvaluation />}
-      />
-
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
