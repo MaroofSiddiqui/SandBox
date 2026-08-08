@@ -18,72 +18,199 @@ import jakarta.servlet.http.HttpServletResponse;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-	private final JwtService jwtService;
+    private final JwtService jwtService;
 
-	public JwtAuthenticationFilter(JwtService jwtService) {
-		this.jwtService = jwtService;
-	}
+    public JwtAuthenticationFilter(JwtService jwtService) {
+        this.jwtService = jwtService;
+    }
 
-	@Override
-	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-			throws ServletException, IOException {
+    @Override
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
 
-		String authorizationHeader = request.getHeader("Authorization");
-		/*
-		 * No JWT supplied.
-		 *
-		 * Continue the filter chain. Spring Security will later decide whether the
-		 * requested endpoint requires authentication.
-		 */
-		if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+        // ============================================================
+        // GET JWT FROM REQUEST
+        // ============================================================
 
-			filterChain.doFilter(request, response);
-			return;
-		}
+        String authorizationHeader =
+                request.getHeader("Authorization");
 
-		String token = authorizationHeader.substring(7);
+        /*
+         * No JWT supplied.
+         *
+         * Continue the filter chain.
+         * Spring Security will decide whether authentication
+         * is required for the requested endpoint.
+         */
+        if (
+                authorizationHeader == null ||
+                !authorizationHeader.startsWith("Bearer ")
+        ) {
 
-		try {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
-			/*
-			 * Parsing also validates:
-			 *
-			 * - JWT signature - token format - expiration
-			 */
-			Claims claims = jwtService.extractAllClaims(token);
+        String token =
+                authorizationHeader.substring(7);
 
-			String email = claims.getSubject();
+        try {
 
-			String role = claims.get("role", String.class);
+            // ========================================================
+            // VALIDATE AND READ JWT
+            // ========================================================
 
-			/*
-			 * Auth Service stores roles such as:
-			 *
-			 * HR CANDIDATE SUPER_ADMIN
-			 *
-			 * Spring Security expects ROLE_ prefix when using hasRole(...).
-			 */
-			SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role);
+            Claims claims =
+                    jwtService.extractAllClaims(token);
 
-			UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(email, null,
-					List.of(authority));
+            String email =
+                    claims.getSubject();
 
-			/*
-			 * Keep useful Auth-Service JWT information available to 
+            String role =
+                    claims.get("role", String.class);
 
-			 * controllers/services.
-			 */
-			authentication.setDetails(claims);
+            // ========================================================
+            // VALIDATE ROLE
+            // ========================================================
 
-			SecurityContextHolder.getContext().setAuthentication(authentication);
-			
-		} catch (Exception exception) {
+            if (role == null || role.isBlank()) {
 
-			exception.printStackTrace();
+                System.out.println(
+                        "[JWT] Role missing from token"
+                );
 
-			SecurityContextHolder.clearContext();
-		}
+                SecurityContextHolder.clearContext();
 
-		filterChain.doFilter(request, response);
-	}
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            /*
+             * JWT currently contains:
+             *
+             * role = CANDIDATE
+             *
+             * Spring Security hasRole("CANDIDATE") expects:
+             *
+             * ROLE_CANDIDATE
+             *
+             * Normalize the role safely.
+             */
+
+            String normalizedRole =
+                    role.trim().toUpperCase();
+
+            if (!normalizedRole.startsWith("ROLE_")) {
+
+                normalizedRole =
+                        "ROLE_" + normalizedRole;
+            }
+
+            SimpleGrantedAuthority authority =
+                    new SimpleGrantedAuthority(
+                            normalizedRole
+                    );
+
+            // ========================================================
+            // CREATE AUTHENTICATION OBJECT
+            // ========================================================
+
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                            email,
+                            null,
+                            List.of(authority)
+                    );
+
+            /*
+             * Store the complete JWT claims.
+             *
+             * Controllers can later retrieve:
+             *
+             * userId
+             * role
+             * organizationId
+             * etc.
+             */
+            authentication.setDetails(claims);
+
+            // ========================================================
+            // SET SECURITY CONTEXT
+            // ========================================================
+
+            SecurityContextHolder
+                    .getContext()
+                    .setAuthentication(authentication);
+
+            // ========================================================
+            // DEBUG INFORMATION
+            // ========================================================
+
+            System.out.println(
+                    "[JWT] ========================================"
+            );
+
+            System.out.println(
+                    "[JWT] Authenticated user: "
+                            + email
+            );
+
+            System.out.println(
+                    "[JWT] User ID: "
+                            + claims.get("userId")
+            );
+
+            System.out.println(
+                    "[JWT] Role from token: "
+                            + role
+            );
+
+            System.out.println(
+                    "[JWT] Normalized role: "
+                            + normalizedRole
+            );
+
+            System.out.println(
+                    "[JWT] Granted authority: "
+                            + authority.getAuthority()
+            );
+
+            System.out.println(
+                    "[JWT] Request: "
+                            + request.getMethod()
+                            + " "
+                            + request.getRequestURI()
+            );
+
+            System.out.println(
+                    "[JWT] ========================================"
+            );
+
+        } catch (Exception exception) {
+
+            /*
+             * JWT is invalid, expired, malformed,
+             * or signature validation failed.
+             */
+
+            System.out.println(
+                    "[JWT] Token validation failed: "
+                            + exception.getMessage()
+            );
+
+            SecurityContextHolder.clearContext();
+        }
+
+        // ============================================================
+        // CONTINUE FILTER CHAIN
+        // ============================================================
+
+        filterChain.doFilter(
+                request,
+                response
+        );
+    }
 }

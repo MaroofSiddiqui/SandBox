@@ -5,14 +5,14 @@ import Topbar from "../../components/common/Topbar";
 import DashboardCard from "../../components/common/DashboardCard";
 import { useAuth } from "../../context/AuthContext";
 
-import { 
-    FileText, 
-    Activity, 
-    UserCheck, 
-    Plus, 
-    Users, 
-    Video, 
-    CalendarCheck 
+import {
+    FileText,
+    Activity,
+    UserCheck,
+    Plus,
+    Users,
+    Video,
+    CalendarCheck
 } from "lucide-react";
 
 import "../../styles/hr-dashboard.css";
@@ -27,7 +27,7 @@ function HrDashboard() {
         studentsGivingExam: 0,
         shortlistedForInterview: 0
     });
-    
+
     const [activeExams, setActiveExams] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState("");
@@ -47,7 +47,7 @@ function HrDashboard() {
                 });
 
                 if (!response.ok) throw new Error("Failed to fetch dashboard metrics.");
-                
+
                 const data = await response.json();
                 setStats({
                     examsCreated: data.examsCreated || 0,
@@ -77,7 +77,7 @@ function HrDashboard() {
             <Sidebar />
             <main className="main-content">
                 <Topbar />
-                
+
                 <div className="dashboard-content">
                     {/* PROFESSIONAL HEADER */}
                     <div style={{ marginBottom: "12px" }}>
@@ -87,22 +87,22 @@ function HrDashboard() {
 
                     {/* FOCUSED METRICS GRID */}
                     <div className="metrics-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-                        <DashboardCard 
-                            title="Exams Created" 
-                            value={stats.examsCreated} 
-                            icon={<FileText size={28} />} 
+                        <DashboardCard
+                            title="Exams Created"
+                            value={stats.examsCreated}
+                            icon={<FileText size={28} />}
                             color="#3b82f6" // Professional Blue
                         />
-                        <DashboardCard 
-                            title="Students Giving Exam" 
-                            value={stats.studentsGivingExam} 
-                            icon={<Activity size={28} />} 
+                        <DashboardCard
+                            title="Students Giving Exam"
+                            value={stats.studentsGivingExam}
+                            icon={<Activity size={28} />}
                             color="#ef4444" // Live/Active Red
                         />
-                        <DashboardCard 
-                            title="Shortlisted for Interview" 
-                            value={stats.shortlistedForInterview} 
-                            icon={<UserCheck size={28} />} 
+                        <DashboardCard
+                            title="Shortlisted for Interview"
+                            value={stats.shortlistedForInterview}
+                            icon={<UserCheck size={28} />}
                             color="#10b981" // Success Green
                         />
                     </div>
@@ -112,16 +112,16 @@ function HrDashboard() {
                         <h3 style={{ marginBottom: "16px", color: "#1e293b", fontSize: "1.1rem" }}>Core Operations</h3>
                         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
                             {/* 1. Exam Creation */}
-                            <button 
-                                className="action-btn" 
+                            <button
+                                className="action-btn"
                                 style={{ backgroundColor: "#0f172a", color: "white", border: "none", padding: "12px 24px" }}
                                 onClick={() => navigate("/hr/assessments/create")}
                             >
                                 <Plus size={18} /> Create New Exam
                             </button>
-                            
+
                             {/* 2. Assign Candidates */}
-                            <button 
+                            <button
                                 className="action-btn"
                                 style={{ backgroundColor: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", padding: "12px 24px" }}
                                 onClick={() => navigate("/hr/assessments")}
@@ -129,16 +129,30 @@ function HrDashboard() {
                                 <Users size={18} /> Assign Candidates to Exam
                             </button>
 
-                            {/* 3. Live Monitoring */}
-                            <button 
+                            {/* 3. Question Bank */}
+                            <button
+                                className="action-btn"
+                                style={{
+                                    backgroundColor: "#eff6ff",
+                                    color: "#2563eb",
+                                    border: "1px solid #bfdbfe",
+                                    padding: "12px 24px"
+                                }}
+                                onClick={() => navigate("/hr/questions/create")}
+                            >
+                                <FileText size={18} /> Question Bank
+                            </button>
+
+                            {/* 4. Live Monitoring */}
+                            <button
                                 className="action-btn"
                                 style={{ backgroundColor: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", padding: "12px 24px" }}
                             >
                                 <Video size={18} /> Live Proctoring Monitor
                             </button>
 
-                            {/* 4. Interview Scheduling */}
-                            <button 
+                            {/* 5. Interview Scheduling */}
+                            <button
                                 className="action-btn"
                                 style={{ backgroundColor: "#ecfdf5", color: "#059669", border: "1px solid #a7f3d0", padding: "12px 24px" }}
                             >
@@ -152,7 +166,7 @@ function HrDashboard() {
                         <div className="section-header">
                             <h3 style={{ color: "#1e293b" }}>Exam Pipeline Status</h3>
                         </div>
-                        
+
                         <div className="table-container">
                             <table className="custom-table">
                                 <thead>
@@ -185,8 +199,8 @@ function HrDashboard() {
                                                 </span>
                                             </td>
                                             <td>
-                                                <button 
-                                                    className="link-btn" 
+                                                <button
+                                                    className="link-btn"
                                                     style={{ color: "#3b82f6", fontWeight: "600" }}
                                                     onClick={() => navigate(`/hr/assessments/${exam.id}/manage`)}
                                                 >

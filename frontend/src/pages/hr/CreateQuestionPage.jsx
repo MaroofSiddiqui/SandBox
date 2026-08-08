@@ -101,7 +101,7 @@ function CreateQuestionPage() {
 
             setSuccess(true);
             setTimeout(() => {
-                navigate("/hr/questions"); 
+                navigate("/hr/assessments"); 
             }, 1500);
 
         } catch (err) {

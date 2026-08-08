@@ -5,57 +5,66 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
 
-  // Restore user if browser is refreshed
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem("user");
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
-
-  // Login through Spring Boot /auth/login
-  const login = async (email, password) => {
-    const response = await axiosInstance.post("/auth/login", {
-      email,
-      password,
+    // Restore user if browser is refreshed
+    const [user, setUser] = useState(() => {
+        const savedUser = localStorage.getItem("user");
+        return savedUser ? JSON.parse(savedUser) : null;
     });
 
-    const data = response.data;
+    // Restore JWT if browser is refreshed
+    const [token, setToken] = useState(() => {
+        return localStorage.getItem("token");
+    });
 
-    // Store JWT for future API requests
-    localStorage.setItem("token", data.token);
+    // Login through Spring Boot /auth/login
+    const login = async (email, password) => {
+        const response = await axiosInstance.post("/auth/login", {
+            email,
+            password,
+        });
 
-    const loggedInUser = {
-      userId: data.userId,
-      name: data.name,
-      email: data.email,
-      role: data.role,
-      organizationId: data.organizationId,
+        const data = response.data;
+
+        // Store JWT for future API requests
+        localStorage.setItem("token", data.token);
+        setToken(data.token);
+
+        const loggedInUser = {
+            userId: data.userId,
+            name: data.name,
+            email: data.email,
+            role: data.role,
+            organizationId: data.organizationId,
+        };
+
+        localStorage.setItem("user", JSON.stringify(loggedInUser));
+        setUser(loggedInUser);
+
+        return loggedInUser;
     };
 
-    localStorage.setItem("user", JSON.stringify(loggedInUser));
-    setUser(loggedInUser);
+    // Remove authentication data
+    const logout = () => {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
 
-    return loggedInUser;
-  };
+        setToken(null);
+        setUser(null);
+    };
 
-  // Remove authentication data
-  const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setUser(null);
-  };
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        login,
-        logout,
-        isAuthenticated: !!user,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+    return (
+        <AuthContext.Provider
+            value={{
+                user,
+                token,
+                login,
+                logout,
+                isAuthenticated: !!user,
+            }}
+        >
+            {children}
+        </AuthContext.Provider>
+    );
 };
 
 // Custom hook for accessing authentication anywhere

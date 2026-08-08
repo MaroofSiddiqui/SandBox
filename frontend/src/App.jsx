@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 
 // =========================
 // PUBLIC PAGES
@@ -22,6 +22,8 @@ import VerifyEmail from "./pages/auth/VerifyEmail";
 // CANDIDATE PAGES
 // =========================
 import CandidateDashboard from "./pages/candidate/CandidateDashboard";
+import TestProctoringView from "./pages/candidate/TestProctoringView";
+import CandidateExamPage from "./pages/candidate/CandidateExamPage";
 
 // =========================
 // HR PAGES
@@ -30,7 +32,10 @@ import HrDashboard from "./pages/hr/HrDashboard";
 import Candidates from "./pages/Candidates";
 import AssessmentsPage from "./pages/hr/AssessmentsPage";
 import CreateAssessmentPage from "./pages/hr/CreateAssessmentPage";
-// import AssessmentManagePage from "./pages/hr/AssessmentManagePage"; // We will create this next!
+import CreateQuestionPage from "./pages/hr/CreateQuestionPage";
+import AssessmentManagePage from "./pages/hr/AssessmentManagePage";
+import ReportsPage from "./pages/hr/ReportsPage";
+import ExamResultDetailPage from "./pages/hr/ExamResultDetailPage";
 
 // =========================
 // SUPER ADMIN PAGES
@@ -40,7 +45,6 @@ import HrManagement from "./pages/admin/HrManagement";
 import Organizations from "./pages/admin/Organizations";
 import PaymentMonitoring from "./pages/admin/PaymentMonitoring";
 import SubscriptionManagement from "./pages/admin/SubscriptionManagement";
-import SuperAdminDashboard from "./pages/admin/SuperAdminDashboard";
 
 // =========================
 // OTHER PAGES / COMPONENTS
@@ -57,139 +61,413 @@ import AdminLayout from "./layouts/AdminLayout";
 // ROUTE SECURITY
 // =========================
 import ProtectedRoute from "./components/common/ProtectedRoute";
+import { useAuth } from "./context/AuthContext";
+
+
+// ============================================================
+// CANDIDATE ASSESSMENT ROUTE
+// ============================================================
+//
+// This wrapper gets:
+//
+// 1. Real assessment ID from URL
+// 2. Real candidate ID from logged-in user
+//
+// Example:
+//
+// /candidate/assessment/3
+//
+// candidateId = 13
+// examId      = 3
+//
+// ============================================================
+
+function CandidateAssessmentRoute() {
+
+    const { assessmentId } = useParams();
+
+    const { user } = useAuth();
+
+    const candidateId =
+        user?.userId ||
+        user?.id ||
+        null;
+
+    if (!candidateId) {
+
+        return (
+            <div
+                style={{
+                    minHeight: "100vh",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontFamily: "Arial, sans-serif"
+                }}
+            >
+
+                <h2>
+                    Candidate information not available.
+                </h2>
+
+            </div>
+        );
+    }
+
+    return (
+        <TestProctoringView
+            candidateId={String(candidateId)}
+            examId={String(assessmentId)}
+        />
+    );
+}
+
+
+// ============================================================
+// APP
+// ============================================================
 
 function App() {
-  return (
-    <Routes>
 
-      {/* =========================
-          PUBLIC ROUTES
-         ========================= */}
+    return (
 
-      <Route path="/" element={<Home />} />
-      <Route path="/about" element={<About />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/verify-otp" element={<VerifyOtp />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/verify-email" element={<VerifyEmail />} />
-      <Route path="/access-denied" element={<AccessDenied />} />
+        <Routes>
 
+            {/* =========================
+                PUBLIC ROUTES
+               ========================= */}
 
-      {/* =========================
-          CANDIDATE ROUTES
-         ========================= */}
+            <Route
+                path="/"
+                element={<Home />}
+            />
 
-      <Route
-        path="/candidate"
-        element={
-          <ProtectedRoute allowedRoles={["CANDIDATE"]}>
-            <CandidateDashboard />
-          </ProtectedRoute>
-        }
-      />
+            <Route
+                path="/about"
+                element={<About />}
+            />
 
+            <Route
+                path="/login"
+                element={<Login />}
+            />
 
-      {/* =========================
-          HR ROUTES
-         ========================= */}
+            <Route
+                path="/register"
+                element={<Register />}
+            />
 
-      <Route
-        path="/hr"
-        element={
-          <ProtectedRoute allowedRoles={["HR"]}>
-            <HrDashboard />
-          </ProtectedRoute>
-        }
-      />
+            <Route
+                path="/forgot-password"
+                element={<ForgotPassword />}
+            />
 
-      <Route
-        path="/hr/candidates"
-        element={
-          <ProtectedRoute allowedRoles={["HR"]}>
-            <Candidates />
-          </ProtectedRoute>
-        }
-      />
+            <Route
+                path="/verify-otp"
+                element={<VerifyOtp />}
+            />
 
-      {/* NEW ASSESSMENT ROUTES */}
-      <Route
-        path="/hr/assessments"
-        element={
-          <ProtectedRoute allowedRoles={["HR"]}>
-            <AssessmentsPage />
-          </ProtectedRoute>
-        }
-      />
+            <Route
+                path="/reset-password"
+                element={<ResetPassword />}
+            />
 
-      <Route
-        path="/hr/assessments/create"
-        element={
-          <ProtectedRoute allowedRoles={["HR"]}>
-            <CreateAssessmentPage />
-          </ProtectedRoute>
-        }
-      />
+            <Route
+                path="/verify-email"
+                element={<VerifyEmail />}
+            />
 
-      {/* Placeholder for the Exam Management Page */}
-      {/* 
-      <Route
-        path="/hr/assessments/:examId/manage"
-        element={
-          <ProtectedRoute allowedRoles={["HR"]}>
-            <AssessmentManagePage />
-          </ProtectedRoute>
-        }
-      /> 
-      */}
-
-      <Route
-        path="/hr/subscriptions"
-        element={
-          <ProtectedRoute allowedRoles={["HR"]}>
-            <SubscriptionPlans />
-          </ProtectedRoute>
-        }
-      />
+            <Route
+                path="/access-denied"
+                element={<AccessDenied />}
+            />
 
 
-      {/* =========================
-          SUPER ADMIN ROUTES
-         ========================= */}
+            {/* =========================
+                CANDIDATE ROUTES
+               ========================= */}
 
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
-            <AdminLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="organizations" element={<Organizations />} />
-        <Route path="hrs" element={<HrManagement />} />
-        <Route path="subscriptions" element={<SubscriptionManagement />} />
-        <Route path="payments" element={<PaymentMonitoring />} />
-      </Route>
+            <Route
+                path="/candidate"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["CANDIDATE"]}
+                    >
+                        <CandidateDashboard />
+                    </ProtectedRoute>
+                }
+            />
 
 
-      {/* =========================
-          CODE EVALUATION TEMPORARY TEST ROUTE
-         ========================= */}
+            {/* =========================
+                CANDIDATE ASSESSMENT
+               ========================= */}
 
-      <Route path="/code-evaluation" element={<CodeEvaluation />} />
+            <Route
+                path="/candidate/assessment/:assessmentId"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["CANDIDATE"]}
+                    >
+                        <CandidateAssessmentRoute />
+                    </ProtectedRoute>
+                }
+            />
 
 
-      {/* =========================
-          404
-         ========================= */}
+            {/* =========================
+                ACTUAL CANDIDATE EXAM
+               =========================
+               
+               Flow:
+               
+               Candidate Dashboard
+                       ↓
+               /candidate/assessment/3
+                       ↓
+               TestProctoringView
+                       ↓
+               POST /assessment-submission/start/3
+                       ↓
+               Submission created
+                       ↓
+               /candidate/exam/3
+                       ↓
+               CandidateExamPage
+               
+               ========================= */}
 
-      <Route path="*" element={<NotFound />} />
+            <Route
+                path="/candidate/exam/:examId"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["CANDIDATE"]}
+                    >
+                        <CandidateExamPage />
+                    </ProtectedRoute>
+                }
+            />
 
-    </Routes>
-  );
+
+            {/* =========================
+                CANDIDATE PROCTORING
+               ========================= */}
+
+            <Route
+                path="/candidate/proctoring"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["CANDIDATE"]}
+                    >
+                        <TestProctoringView />
+                    </ProtectedRoute>
+                }
+            />
+
+
+            {/* =========================
+                HR ROUTES
+               ========================= */}
+
+            <Route
+                path="/hr"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["HR"]}
+                    >
+                        <HrDashboard />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/hr/candidates"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["HR"]}
+                    >
+                        <Candidates />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/hr/assessments"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["HR"]}
+                    >
+                        <AssessmentsPage />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/hr/assessments/create"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["HR"]}
+                    >
+                        <CreateAssessmentPage />
+                    </ProtectedRoute>
+                }
+            />
+
+
+            {/* =========================
+                QUESTION BANK
+               ========================= */}
+
+            <Route
+                path="/hr/questions/create"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["HR"]}
+                    >
+                        <CreateQuestionPage />
+                    </ProtectedRoute>
+                }
+            />
+
+
+            {/* =========================
+                ASSESSMENT MANAGEMENT
+               ========================= */}
+
+            <Route
+                path="/hr/assessments/:examId/manage"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["HR"]}
+                    >
+                        <AssessmentManagePage />
+                    </ProtectedRoute>
+                }
+            />
+
+
+            {/* =========================
+                REPORTS
+               ========================= */}
+
+            <Route
+                path="/hr/reports"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["HR"]}
+                    >
+                        <ReportsPage />
+                    </ProtectedRoute>
+                }
+            />
+
+
+            {/* =========================
+                EXAM RESULT
+               ========================= */}
+
+            <Route
+                path="/hr/results/:examId"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["HR"]}
+                    >
+                        <ExamResultDetailPage />
+                    </ProtectedRoute>
+                }
+            />
+
+
+            {/* =========================
+                HR SUBSCRIPTION
+               ========================= */}
+
+            <Route
+                path="/hr/subscriptions"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["HR"]}
+                    >
+                        <SubscriptionPlans />
+                    </ProtectedRoute>
+                }
+            />
+
+
+            {/* =========================
+                SUPER ADMIN ROUTES
+               ========================= */}
+
+            <Route
+                path="/admin"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["SUPER_ADMIN"]}
+                    >
+                        <AdminLayout />
+                    </ProtectedRoute>
+                }
+            >
+
+                <Route
+                    index
+                    element={
+                        <Navigate
+                            to="dashboard"
+                            replace
+                        />
+                    }
+                />
+
+                <Route
+                    path="dashboard"
+                    element={<Dashboard />}
+                />
+
+                <Route
+                    path="organizations"
+                    element={<Organizations />}
+                />
+
+                <Route
+                    path="hrs"
+                    element={<HrManagement />}
+                />
+
+                <Route
+                    path="subscriptions"
+                    element={<SubscriptionManagement />}
+                />
+
+                <Route
+                    path="payments"
+                    element={<PaymentMonitoring />}
+                />
+
+            </Route>
+
+
+            {/* =========================
+                CODE EVALUATION
+               ========================= */}
+
+            <Route
+                path="/code-evaluation"
+                element={<CodeEvaluation />}
+            />
+
+
+            {/* =========================
+                404
+               ========================= */}
+
+            <Route
+                path="*"
+                element={<NotFound />}
+            />
+
+        </Routes>
+    );
 }
 
 export default App;
