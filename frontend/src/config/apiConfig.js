@@ -1,7 +1,7 @@
 export const API_CONFIG = {
   AUTH_SERVICE:
     import.meta.env.VITE_AUTH_SERVICE_URL ||
-    "http://localhost:8081",
+    "http://localhost:8081/api",
 
   ASSESSMENT_SERVICE:
     import.meta.env.VITE_ASSESSMENT_SERVICE_URL ||

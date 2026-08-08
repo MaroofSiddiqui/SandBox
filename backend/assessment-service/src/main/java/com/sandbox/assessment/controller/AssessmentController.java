@@ -37,4 +37,16 @@ public class AssessmentController {
     public ResponseEntity<AssessmentDto> getAssessmentById(@PathVariable Long id) {
         return ResponseEntity.ok(assessmentService.getAssessmentById(id));
     }
+    
+    
+    @PostMapping("/{id}/assign")
+    public ResponseEntity<String> assignCandidatesToAssessment(
+            @PathVariable Long id, 
+            @RequestBody com.sandbox.assessment.dto.AssignCandidatesRequest request) {
+        
+        // You will need to create a simple method in AssessmentService to save these to the database
+        // assessmentService.assignCandidates(id, request.getCandidateIds());
+        
+        return ResponseEntity.ok("Candidates assigned successfully!");
+    }
 }

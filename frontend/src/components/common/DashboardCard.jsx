@@ -1,7 +1,7 @@
 // Reusable dashboard card component.
 // We will use this for every statistic shown on the dashboard.
 
-import "../styles/card.css";
+import "../../styles/card.css";
 
 function DashboardCard({
 
